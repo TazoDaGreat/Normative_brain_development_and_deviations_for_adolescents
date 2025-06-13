@@ -1,0 +1,537 @@
+---
+title: "CT_SA"
+author: Jeffrey Choi
+output: html_document
+---
+
+```{r}
+#| warning: false
+
+data_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/'
+
+# NOTE: must run entire code chunk
+if(!is.null(data_dir)){
+  setwd(data_dir) # set core as working directory
+}
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c("999", "777"))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+# desikan atlas, average cortical thickness in mm for whole brain
+dat.mri.ct = read.csv('imaging/mri_y_smr_thk_dsk.csv') %>%
+  select(src_subject_id, eventname, smri_thick_cdk_mean)
+# desikan atlas, total cortical surface area in mm^2 for whole brain
+dat.mri.area = read.csv('imaging/mri_y_smr_area_dsk.csv') %>%
+  select(src_subject_id, eventname, smri_area_cdk_total)
+
+```
+
+```{r}
+#| label: clean-demog
+
+# basic cleaning for demographic variables
+demog_clean <- demog |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  # fill in race and sex first (avoid losing demog info due to filtering eventname)
+  group_by(src_subject_id) %>%
+  mutate(
+    race_ethnicity = first(na.omit(race_ethnicity)),
+    demo_sex_v2 = first(na.omit(demo_sex_v2))
+  ) %>%
+  ungroup() %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    )) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1"))
+
+demog_filled <- demog %>%
+  group_by(src_subject_id) %>%
+  summarize(
+    sex = first(na.omit(demo_sex_v2)),
+    race_ethnicity = first(na.omit(race_ethnicity))
+  ) %>%
+  mutate(
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(sex),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    ))
+```
+
+```{r}
+
+# full dataset
+
+# MAJOR NOTE: Some individuals do not have baseline measures (results in some NA in sex)
+# Dropped NA for now but need new method of joining full dataset or imputing baseline measures
+thickness <- dat.mri.ct |>
+  full_join(dat.mri.area, by = join_by("eventname", "src_subject_id")) |>
+  # join mri data to demographics
+  right_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>
+  # join to study covariates
+  left_join(study_covars, by = join_by("eventname", "src_subject_id")) |>
+  # fill in empty race for MRI measure (lookup table)
+  left_join(demog_filled, by = "src_subject_id") |>
+  # select variables of interest
+  select(src_subject_id, eventname, smri_thick_cdk_mean, smri_area_cdk_total, age, sex = sex.y, race_ethnicity = race_ethnicity.y, site_id_l, interview_age) |>
+  # remove ages less than 8 and more than 16
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age)) |>
+  rename(thick = smri_thick_cdk_mean,
+         area = smri_area_cdk_total) |>
+  drop_na(thick, area) |>
+  group_by(src_subject_id) |>
+  # fill repeated demographic values
+  mutate(sex = first(na.omit(sex)),
+         race_ethnicity = first(na.omit(race_ethnicity)),
+         # change in cortical thickness / surface area
+         change_thick = thick - thick[1],
+         change_area = area - area[1],
+         src_subject_id = factor(src_subject_id),
+         site_id_l = factor(site_id_l),
+         race_ethnicity = factor(race_ethnicity)) |>
+  ungroup()
+```
+
+```{r}
+# Plots over visits (baseline, year2, year 4)
+
+visit_order <- c(
+  "baseline_year_1_arm_1",
+  "2_year_follow_up_y_arm_1",
+  "4_year_follow_up_y_arm_1"
+)
+
+# plot spaghetti plots of thickness
+thickness %>%
+  mutate(eventname = factor(eventname, levels = visit_order)) %>%
+  ggplot(aes(x = eventname, y = thick, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Time",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of surface area
+thickness %>%
+  mutate(eventname = factor(eventname, levels = visit_order)) %>%
+  ggplot(aes(x = eventname, y = area, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Surface Area Over Time",
+    x = "Time",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of thickness on sex
+thickness %>%
+  mutate(eventname = factor(eventname, levels = visit_order)) %>%
+  filter(sex != "Intersex-Male") %>%
+  ggplot(aes(x = eventname, y = thick, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Time",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of surface area on sex
+thickness %>%
+  mutate(eventname = factor(eventname, levels = visit_order)) %>%
+  filter(sex != "Intersex-Male") %>%
+  ggplot(aes(x = eventname, y = area, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Surface Area Over Time",
+    x = "Time",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of thickness on race
+thickness %>%
+  mutate(eventname = factor(eventname, levels = visit_order)) %>%
+  filter(!is.na(race_ethnicity)) %>%
+  ggplot(aes(x = eventname, y = thick, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Time",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ race_ethnicity) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of surface area on race
+thickness %>%
+  mutate(eventname = factor(eventname, levels = visit_order)) %>%
+  filter(!is.na(race_ethnicity)) %>%
+  ggplot(aes(x = eventname, y = area, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Surface Area Over Time",
+    x = "Time",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal() + facet_grid(. ~ race_ethnicity) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+```{r}
+# Plots over age
+
+# plot spaghetti plots of thickness
+thickness %>%
+  ggplot(aes(x = age, y = thick, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Age",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of surface area
+thickness %>%
+  ggplot(aes(x = age, y = area, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Surface Area Over Time",
+    x = "Age",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of thickness on sex
+thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  ggplot(aes(x = eventname, y = thick, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Age",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of surface area on sex
+thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  ggplot(aes(x = age, y = area, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Surface Area Over Time",
+    x = "Age",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of thickness on race
+thickness %>%
+  filter(!is.na(race_ethnicity)) %>%
+  ggplot(aes(x = age, y = thick, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Age",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ race_ethnicity) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of surface area on race
+thickness %>%
+  filter(!is.na(race_ethnicity)) %>%
+  ggplot(aes(x = age, y = area, group = src_subject_id)) + 
+  geom_line(alpha=0.1) + 
+  geom_point(alpha = 0.1) +
+  labs(
+    title = "Individual Cortisol Surface Area Over Time",
+    x = "Age",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal() + facet_grid(. ~ race_ethnicity) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+
+```{r}
+# Plots over age (months)
+
+# plot spaghetti plots of thickness
+thickness %>%
+  ggplot(aes(x = interview_age, y = thick, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of surface area
+thickness %>%
+  ggplot(aes(x = interview_age, y = area, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Surface Area Over Time",
+    x = "Age",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of thickness on sex
+thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  ggplot(aes(x = interview_age, y = thick, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Age",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of surface area on sex
+thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  ggplot(aes(x = interview_age, y = area, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Cortisol Surface Area Over Time",
+    x = "Age",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of thickness on race
+thickness %>%
+  filter(!is.na(race_ethnicity)) %>%
+  ggplot(aes(x = interview_age, y = thick, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Cortisol Thickness Over Time",
+    x = "Age",
+    y = "Cortisol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ race_ethnicity) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of surface area on race
+thickness %>%
+  filter(!is.na(race_ethnicity)) %>%
+  ggplot(aes(x = interview_age, y = area, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Cortisol Surface Area Over Time",
+    x = "Age",
+    y = "Cortisol Surface Area (mm^2)"
+  ) +
+  theme_minimal() + facet_grid(. ~ race_ethnicity) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+
+``` {r}
+# Plots proportion of individual whose thickness decreased after baseline
+
+thickness %>%
+  arrange(src_subject_id, eventname) %>%
+  group_by(src_subject_id) %>%
+  filter(any(eventname == "baseline_year_1_arm_1")) %>%
+  # boolean decreased col to see if measure decreased after baseline
+  mutate(baseline_thick = thick[eventname == "baseline_year_1_arm_1"]) %>%
+  mutate(decreased = thick < baseline_thick) %>%
+  ungroup() %>%
+  filter(eventname != "baseline_year_1_arm_1", !is.na(decreased)) %>%
+  # compute propartion of decreased measures
+  group_by(eventname) %>%
+  summarize(
+    n = n(),
+    n_decreased = sum(decreased, na.rm = TRUE),
+    prop_decreased = n_decreased / n
+  ) %>%
+  ggplot(aes(x = eventname, y = prop_decreased)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = scales::percent(prop_decreased, accuracy = 1)),
+            vjust = -0.5, size = 2.5) +
+  labs(
+    title = "Proportion of Individuals with Decreased Cortical Thickness from Baseline",
+    x = "Visit",
+    y = "Proportion"
+  ) +
+  theme_minimal()
+
+# Plots proportion of individual whose surface area decreased after baseline
+
+thickness %>%
+  arrange(src_subject_id, eventname) %>%
+  group_by(src_subject_id) %>%
+  filter(any(eventname == "baseline_year_1_arm_1")) %>%
+  # boolean decreased col to see if measure decreased after baseline
+  mutate(baseline_area = area[eventname == "baseline_year_1_arm_1"]) %>%
+  mutate(decreased = area < baseline_area) %>%
+  ungroup() %>%
+  filter(eventname != "baseline_year_1_arm_1", !is.na(decreased)) %>%
+  # compute proportion of decreased measures
+  group_by(eventname) %>%
+  summarize(
+    n = n(),
+    n_decreased = sum(decreased, na.rm = TRUE),
+    prop_decreased = n_decreased / n
+  ) %>%
+  ggplot(aes(x = eventname, y = prop_decreased)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = scales::percent(prop_decreased, accuracy = 1)),
+            vjust = -0.5, size = 2.5) +
+  labs(
+    title = "Proportion of Individuals with Decreased Cortical Surface Area from Baseline",
+    x = "Visit",
+    y = "Proportion"
+  ) +
+  theme_minimal()
+```
+
+``` {r}
+thickness %>% 
+  ggplot(aes(x = site_id_l, y = thick)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribution of Cortical Thickness by Site",
+    x = "Site",
+    y = "Cortical Thickness"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Boxplot of surface area by site
+thickness %>% 
+  ggplot(aes(x = site_id_l, y = area)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribution of Cortical Surface Area by Site",
+    x = "Site",
+    y = "Cortical Surface Area"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```

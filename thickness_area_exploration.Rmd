@@ -432,15 +432,7 @@ thickness %>%
   filter(!is.na(race_ethnicity)) %>%
   ggplot(aes(x = interview_age, y = area, group = src_subject_id)) + 
   geom_line(color="azure3", alpha=0.2) +
-```
-
-
-```{r}
-```
-
-
-```{r}
-geom_point(color="azure3", alpha = 0.2) +
+  geom_point(color="azure3", alpha = 0.2) +
   scale_x_continuous(
     name = "Age (years)",
     breaks = seq(96, 192, by = 12),
@@ -470,7 +462,7 @@ thickness %>%
   mutate(decreased = thick < baseline_thick) %>%
   ungroup() %>%
   filter(eventname != "baseline_year_1_arm_1", !is.na(decreased)) %>%
-  # compute propartion of decreased measures
+  # compute proportion of decreased measures
   group_by(eventname) %>%
   summarize(
     n = n(),
@@ -479,8 +471,7 @@ thickness %>%
   ) %>%
   ggplot(aes(x = eventname, y = prop_decreased)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = scales::percent(prop_decreased, accuracy = 1)),
-            vjust = -0.5, size = 2.5) +
+  geom_text(aes(label = scales::percent(prop_decreased, accuracy = 1)), vjust = -0.5, size = 2.5) +
   labs(
     title = "Proportion of Individuals with Decreased Cortical Thickness from Baseline",
     x = "Visit",
@@ -508,8 +499,7 @@ thickness %>%
   ) %>%
   ggplot(aes(x = eventname, y = prop_decreased)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = scales::percent(prop_decreased, accuracy = 1)),
-            vjust = -0.5, size = 2.5) +
+  geom_text(aes(label = scales::percent(prop_decreased, accuracy = 1)), vjust = -0.5, size = 2.5) +
   labs(
     title = "Proportion of Individuals with Decreased Cortical Surface Area from Baseline",
     x = "Visit",
@@ -572,9 +562,12 @@ thickness %>%
 
 ```
 
-```{r}
-# plots distribution of thickness by 
+```{r, fig.width = 12, fig.height = 4}
+# plots distribution of thickness by race and sex
+
 thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  filter(!is.na(race_ethnicity)) %>%
   ggplot(aes(x = thick)) +
   geom_histogram(bins = 1000) +
   labs(
@@ -583,10 +576,16 @@ thickness %>%
     x = "Thickness (mm)",
     y = "Count"
   ) +
-  theme_minimal()
+  theme_minimal() + facet_grid(. ~ race_ethnicity + sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+  
 
-# plots distribution of area for all measures
+# plots distribution of area by race and sex
 thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  filter(!is.na(race_ethnicity)) %>%
   ggplot(aes(x = area)) +
   geom_histogram(bins = 1000) +
   labs(
@@ -595,6 +594,9 @@ thickness %>%
     x = "Area (mm^2)",
     y = "Count"
   ) +
-  theme_minimal()
+  theme_minimal() + facet_grid(. ~ race_ethnicity + sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
 ```

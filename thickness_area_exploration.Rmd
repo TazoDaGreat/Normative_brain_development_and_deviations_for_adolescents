@@ -431,8 +431,16 @@ thickness %>%
 thickness %>%
   filter(!is.na(race_ethnicity)) %>%
   ggplot(aes(x = interview_age, y = area, group = src_subject_id)) + 
-  geom_line(color="azure3", alpha=0.2) + 
-  geom_point(color="azure3", alpha = 0.2) +
+  geom_line(color="azure3", alpha=0.2) +
+```
+
+
+```{r}
+```
+
+
+```{r}
+geom_point(color="azure3", alpha = 0.2) +
   scale_x_continuous(
     name = "Age (years)",
     breaks = seq(96, 192, by = 12),
@@ -533,5 +541,60 @@ thickness %>%
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+```{r}
+# plots distribution of thickness for all measures
+thickness %>%
+  ggplot(aes(x = thick)) +
+  geom_histogram(bins = 1000) +
+  labs(
+    title = "Distribution of Average Cortical Thickness",
+    subtitle = "All Measures Over Time",
+    x = "Thickness (mm)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+# plots distribution of area for all measures
+thickness %>%
+  ggplot(aes(x = area)) +
+  geom_histogram(bins = 1000) +
+  labs(
+    title = "Distribution of Average Cortical Surface Area",
+    subtitle = "All Measures Over Time",
+    x = "Area (mm^2)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# plots distribution of thickness by 
+thickness %>%
+  ggplot(aes(x = thick)) +
+  geom_histogram(bins = 1000) +
+  labs(
+    title = "Distribution of Average Cortical Thickness",
+    subtitle = "All Measures Over Time",
+    x = "Thickness (mm)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+# plots distribution of area for all measures
+thickness %>%
+  ggplot(aes(x = area)) +
+  geom_histogram(bins = 1000) +
+  labs(
+    title = "Distribution of Average Cortical Surface Area",
+    subtitle = "All Measures Over Time",
+    x = "Area (mm^2)",
+    y = "Count"
+  ) +
+  theme_minimal()
 
 ```

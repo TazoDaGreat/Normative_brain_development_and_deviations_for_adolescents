@@ -1,5 +1,5 @@
 ---
-title: "CT_SA"
+title: "thickness_area_exploration"
 author: Jeffrey Choi
 output: html_document
 ---

@@ -4,8 +4,6 @@ author: Jeffrey Choi
 output: html_document
 ---
 
-Exploring ABCD dataset and plotting demographic information with regards to average cortical thickness and surface area
-
 ```{r}
 #| warning: false
 
@@ -149,9 +147,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Cortical Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Time",
-    y = "Cortical Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal()
 
@@ -164,7 +162,7 @@ thickness %>%
   labs(
     title = "Individual Surface Area Over Time",
     x = "Time",
-    y = "Cortical Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal()
 
@@ -176,9 +174,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Time",
-    y = "Corticol Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal() + facet_grid(. ~ sex) +
   theme(
@@ -193,9 +191,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Surface Area Over Time",
+    title = "Individual Cortisol Surface Area Over Time",
     x = "Time",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal() + facet_grid(. ~ sex) +
   theme(
@@ -210,9 +208,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Time",
-    y = "Corticol Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal() + facet_grid(. ~ race_ethnicity) +
   theme(
@@ -227,9 +225,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Surface Area Over Time",
+    title = "Individual Cortisol Surface Area Over Time",
     x = "Time",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal() + facet_grid(. ~ race_ethnicity) +
   theme(
@@ -246,9 +244,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Age",
-    y = "Corticol Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal()
 
@@ -260,7 +258,7 @@ thickness %>%
   labs(
     title = "Individual Surface Area Over Time",
     x = "Age",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal()
 
@@ -271,9 +269,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Age",
-    y = "Corticol Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal() + facet_grid(. ~ sex) +
   theme(
@@ -287,9 +285,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Surface Area Over Time",
+    title = "Individual Cortisol Surface Area Over Time",
     x = "Age",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal() + facet_grid(. ~ sex) +
   theme(
@@ -303,9 +301,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Age",
-    y = "Corticol Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal() + facet_grid(. ~ race_ethnicity) +
   theme(
@@ -319,9 +317,9 @@ thickness %>%
   geom_line(alpha=0.1) + 
   geom_point(alpha = 0.1) +
   labs(
-    title = "Individual Corticol Surface Area Over Time",
+    title = "Individual Cortisol Surface Area Over Time",
     x = "Age",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal() + facet_grid(. ~ race_ethnicity) +
   theme(
@@ -344,8 +342,8 @@ thickness %>%
     labels = function(x) x / 12
   ) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
-    y = "Corticol Thickness (mm)"
+    title = "Individual Cortisol Thickness Over Time",
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal()
 
@@ -362,7 +360,7 @@ thickness %>%
   labs(
     title = "Individual Surface Area Over Time",
     x = "Age",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal()
 
@@ -378,9 +376,9 @@ thickness %>%
     labels = function(x) x / 12
   ) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Age",
-    y = "Corticol Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal() + facet_grid(. ~ sex) +
   theme(
@@ -399,9 +397,9 @@ thickness %>%
     labels = function(x) x / 12
   ) +
   labs(
-    title = "Individual Corticol Surface Area Over Time",
+    title = "Individual Cortisol Surface Area Over Time",
     x = "Age",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal() + facet_grid(. ~ sex) +
   theme(
@@ -420,9 +418,9 @@ thickness %>%
     labels = function(x) x / 12
   ) +
   labs(
-    title = "Individual Corticol Thickness Over Time",
+    title = "Individual Cortisol Thickness Over Time",
     x = "Age",
-    y = "Corticol Thickness (mm)"
+    y = "Cortisol Thickness (mm)"
   ) +
   theme_minimal() + facet_grid(. ~ race_ethnicity) +
   theme(
@@ -441,9 +439,9 @@ thickness %>%
     labels = function(x) x / 12
   ) +
   labs(
-    title = "Individual Corticol Surface Area Over Time",
+    title = "Individual Cortisol Surface Area Over Time",
     x = "Age",
-    y = "Corticol Surface Area (mm^2)"
+    y = "Cortisol Surface Area (mm^2)"
   ) +
   theme_minimal() + facet_grid(. ~ race_ethnicity) +
   theme(

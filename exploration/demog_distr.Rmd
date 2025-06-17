@@ -3,7 +3,7 @@ title: "demog_distr"
 author: Jeffrey Choi
 output: html_document
 ---
-
+Exploring ABCD dataset and plotting demographic information
 ```{r}
 #| warning: false
 

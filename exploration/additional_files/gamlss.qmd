@@ -1,0 +1,1075 @@
+---
+title: "GAMLSS Modeling"
+author: "Shelby Tisdale"
+format: html
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Load Data and Packages
+
+```{r}
+#| label: load-packages
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(gamlss)
+library(bamlss)
+library(gamlss.ggplots)
+library(plotly)
+```
+
+```{r}
+#| label: load-data
+#| warning: false
+
+data_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/'
+
+# NOTE: must run entire code chunk
+if(!is.null(data_dir)){
+  setwd(data_dir)
+}
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c("999", "777"))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+# desikan atlas, cortical thickness
+dat.mri = read.csv('imaging/mri_y_smr_thk_dsk.csv') |>
+  select(src_subject_id, eventname, smri_thick_cdk_mean)
+# desikan atlas, cortical surface area
+dat.mri.area = read.csv('imaging/mri_y_smr_area_dsk.csv') |>
+  select(src_subject_id, eventname, smri_area_cdk_total)
+```
+
+# Clean Data
+
+```{r}
+#| label: clean-data
+
+# basic cleaning for demographic variables
+demog_clean <- demog |>
+  # filter for events of interest
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    # will disaggregate in final analysis
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    ))
+
+# create dataset for modeling
+thickness <- dat.mri |>
+  full_join(dat.mri.area, by = join_by("eventname", "src_subject_id")) |>
+  # join mri data to demographics
+  right_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>
+  # join to study covariates
+  left_join(study_covars, by = join_by("eventname", "src_subject_id")) |>
+  # select variables of interest
+  select(src_subject_id, eventname, smri_thick_cdk_mean, smri_area_cdk_total, age, sex, site_id_l, race_ethnicity, interview_age) |>
+  # remove irrelevant ages 
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age)) |>
+  rename(thick = smri_thick_cdk_mean,
+         area = smri_area_cdk_total) |>
+  drop_na(thick, area) |>
+  group_by(src_subject_id) |>
+  # fill repeated demographic values
+  mutate(sex = first(na.omit(sex)),
+         race_ethnicity = first(na.omit(race_ethnicity)),
+         # change in cortical thickness / surface area
+         change = thick - thick[1],
+         change_area = area - area[1],
+         src_subject_id = factor(src_subject_id),
+         site_id_l = factor(site_id_l),
+         race_ethnicity = factor(race_ethnicity)) |>
+  ungroup()
+         
+# create wide dataset 
+thickness_wide <- thickness |>
+  drop_na() |>
+  mutate(time = case_when(eventname == 'baseline_year_1_arm_1' ~ 0,
+                          eventname == '2_year_follow_up_y_arm_1' ~ 2,
+                          eventname == '4_year_follow_up_y_arm_1' ~ 4)) |>
+  select(-eventname) |>
+  pivot_wider(names_from = time,
+              values_from = c(thick, area, change, change_area, interview_age))
+```
+
+# Centile Estimation for Cortical Surface Area
+
+## Exploratory Data Analysis
+
+```{r}
+#| label: EDA
+#| warning: false
+#| message: false
+
+# use geom_text to print sample size on each facet
+
+thickness |>
+  filter(!is.na(sex) & !is.na(race_ethnicity) & sex != "Intersex-Male") |>
+  ggplot(aes(x = interview_age, y = area)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "gam", aes(color = race_ethnicity)) +
+  facet_wrap(~sex) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "Interview Age in Months", y = "Cortical Surface Area (mm^2)",
+       title = "Cortical Surface Area by Interview Age and Demographics",
+       color = "Race / Ethnicity") +
+  theme(legend.position = "top")
+
+thickness |> 
+  filter(!is.na(sex) & !is.na(race_ethnicity) & sex != "Intersex-Male") |>
+  ggplot(aes(x = area)) +
+  geom_density(aes(fill = sex), alpha = 0.5) +
+  theme_minimal() +
+  facet_grid(race_ethnicity~age) +
+  labs(title = "Cortical Surface Area Distribution by Age, Race/Ethnicity, and Sex",
+       x = "Cortical Surface Area (mm^2)",
+       y = NULL,
+       fill = "Sex") +
+  theme(axis.text.y = element_blank(),
+        legend.position = "top")
+```
+
+## Models with Normal Family
+
+### Model 1
+
+```{r}
+#| label: area-model-1
+
+# look into adding height
+
+# initial model for surface area using gamlss
+# simplified model with no smoothing functions
+area_model1 <- gamlss(
+  # models area as a linear function of age with random intercepts for subject and site
+  area ~ interview_age + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  # variance as a linear function of age
+  sigma.formula = ~interview_age,
+  # uses normal distribution
+  family = NO,
+  data = na.omit(thickness)
+)
+
+# model summary
+summary(area_model1)
+
+# plot centiles
+fitted_centiles_legend(
+  area_model1,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness %>% na.omit %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "interview age (months)",
+       y = "Cortical Surface Area") +
+  theme_minimal()
+```
+
+### Model 2
+
+```{r}
+#| label: area-model-2
+
+# model 2 for surface area using gamlss
+# simple model with smoothing function in model formula
+area_model2 <- gamlss(
+  # models area as a function of age with random intercepts for subject and site
+  # uses p-spline smoothing function for age - I think this is a good choice
+  area ~ pb(interview_age) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  # variance as a linear function of age
+  sigma.formula = ~interview_age,
+  # uses normal distribution
+  family = NO,
+  data = na.omit(thickness)
+)
+# converged in two iterations
+
+# model summary
+summary(area_model2)
+
+# plot centiles
+# lines are less straight than the first plot - good
+# plot centiles
+fitted_centiles_legend(
+  area_model2,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness %>% na.omit %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "interview age (months)",
+       y = "Cortical Surface Area") +
+  theme_minimal()
+
+```
+
+### Model 3
+
+```{r}
+#| label: area-model-3
+
+# model 3 for surface area using gamlss
+# simple model with smoothing function in model formula + smoothing function for variance
+area_model3 <- gamlss(
+  # models area as a function of age with random intercepts for subject and site
+  # uses p-spline smoothing function for age - I think this is a good choice
+  area ~ pb(interview_age) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  # variance as a smooth function of age
+  sigma.formula = ~pb(interview_age),
+  # uses normal distribution
+  family = NO,
+  data = na.omit(thickness)
+)
+
+# model summary
+summary(area_model3)
+
+# plot centiles
+fitted_centiles_legend(
+  area_model3,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness %>% na.omit %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "interview age (months)",
+       y = "Cortical Surface Area") +
+  theme_minimal()
+```
+
+### Model 4
+
+```{r}
+#| label: area-model-4
+
+# model 4 for surface area using gamlss
+# simple model with smoothing function in model formula + smoothing function for variance + linear functions for skew and kurt
+area_model4 <- gamlss(
+  # models area as a function of age with random intercepts for subject and site
+  # uses p-spline smoothing function for age
+  area ~ pb(interview_age) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  # variance as a linear function of age
+  sigma.formula = ~pb(interview_age),
+  # doesn't seem to do much
+  tau.formula = interview_age,
+  nu.formula = interview_age,
+  # uses normal distribution
+  family = NO,
+  data = na.omit(thickness)
+)
+
+# model summary
+summary(area_model4)
+
+# plot centiles
+fitted_centiles_legend(
+  area_model4,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness %>% na.omit %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "interview age (months)",
+       y = "Cortical Surface Area") +
+  theme_minimal()
+```
+
+### Comparison of Models 1-4 (Normal Models)
+
+```{r}
+#| label: normal-model-comparison
+#| warning: false
+
+# check q statistics and worm plots
+# model 1
+round(Q.stats(
+  area_model1,
+  xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model1, xvar = na.omit(thickness)$interview_age)
+
+# model 2
+round(Q.stats(
+  area_model2,
+  xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model2, xvar = na.omit(thickness)$interview_age)
+
+# model 3
+round(Q.stats(
+  area_model3,
+  xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model3, xvar = na.omit(thickness)$interview_age)
+
+# model 4
+round(Q.stats(
+  area_model4,
+  xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model4, xvar = na.omit(thickness)$interview_age)
+
+# check GAIC
+GAIC(area_model1)
+GAIC(area_model2) # model 2 has best AIC
+GAIC(area_model3)
+GAIC(area_model4)
+
+# check BIC
+GAIC(area_model1, k = log(nrow(na.omit(thickness)))) # model 1 has best BIC
+GAIC(area_model2, k = log(nrow(na.omit(thickness))))
+GAIC(area_model3, k = log(nrow(na.omit(thickness))))
+GAIC(area_model4, k = log(nrow(na.omit(thickness))))
+```
+
+## Model selection with `lms()`
+
+```{r}
+#| label: centile-estimation-with-lms
+
+# lms method for fitting distributional models
+# assumes response var has a BCCG distribution
+area_lms_0 <- lms(y = area, x = interview_age, data = na.omit(thickness), k = 2)
+area_lms_0$family
+
+# family is BCPEo
+area_model_5 <- gamlss(
+  area ~ pb(interview_age) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age),
+  tau.formula = ~pb(interview_age),
+  nu.formula = ~pb(interview_age),
+  # uses normal distribution
+  family = BCPEo,
+  data = na.omit(thickness)
+)
+
+# family BCT
+area_model_6 <- gamlss(
+  area ~ pb(interview_age) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age),
+  tau.formula = ~pb(interview_age),
+  nu.formula = ~pb(interview_age),
+  # uses normal distribution
+  family = BCT,
+  data = na.omit(thickness)
+)
+
+# residual diagnostices for model 0
+round(Q.stats(area_lms_0, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_lms_0, xvar = na.omit(thickness)$interview_age)
+
+# residual diagnostices for model 5
+round(Q.stats(area_model_5, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_5, xvar = na.omit(thickness)$interview_age)
+
+# residual diagnostices for model 6
+round(Q.stats(area_model_6, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_6, xvar = na.omit(thickness)$interview_age)
+
+# fitted plots
+fittedPlot(area_lms_0, x = na.omit(thickness)$interview_age)
+fittedPlot(area_lms_0, area_model_5, x = na.omit(thickness)$interview_age, line.type = c(1,2))
+
+centiles(area_lms_0, na.omit(thickness)$interview_age)
+```
+
+```{r}
+#| label: models-with-power-transformation
+
+# lms function with power transformation on predictor
+area_lms_1 <- lms(area, interview_age, data = na.omit(thickness), trans.x = TRUE, k = 2)
+
+area_lms_1$family
+area_lms_1$power
+
+area_model_7 <- gamlss(
+  area ~ pb(interview_age^area_lms_1$power, df = area_lms_1$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~pb(interview_age, df = area_lms_1$tau.df),
+  nu.formula = ~pb(interview_age, area_lms_1$nu.df),
+  # uses normal distribution
+  family = BCPEo,
+  data = na.omit(thickness)
+)
+
+# model 7 but with no random effects
+area_model_8 <- gamlss(
+  area ~ pb(interview_age^area_lms_1$power, df = area_lms_1$mu.df),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~pb(interview_age, df = area_lms_1$tau.df),
+  nu.formula = ~pb(interview_age, area_lms_1$nu.df),
+  # uses normal distribution
+  family = BCPEo,
+  data = na.omit(thickness)
+)
+
+# residual diagnostices for model 7
+round(Q.stats(area_model_7, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_7, xvar = na.omit(thickness)$interview_age)
+
+# residual diagnostices for model 8
+round(Q.stats(area_model_8, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_8, xvar = na.omit(thickness)$interview_age)
+
+
+# plot centiles
+fitted_centiles_legend(
+  area_model_7,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness %>% na.omit %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "interview age (months)",
+       y = "Cortical Surface Area") +
+  theme_minimal()
+
+# calculate GAIC - exactly the same
+GAIC(area_model_7)
+GAIC(area_model_8)
+```
+
+## Modeling with Box-Cox Power Exponential Original Family
+
+```{r}
+#| label: BCPEo-Models
+
+# power transformation, random effects, smoothing functions for all params
+area_model_7 <- gamlss(
+  area ~ pb(interview_age^area_lms_1$power, df = area_lms_1$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~pb(interview_age, df = area_lms_1$tau.df),
+  nu.formula = ~pb(interview_age, area_lms_1$nu.df),
+  family = BCPEo,
+  data = na.omit(thickness)
+)
+
+# no power transformation, random effects, smoothing functions for all params
+area_model_9 <- gamlss(
+  area ~ pb(interview_age, df = area_lms_1$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~pb(interview_age, df = area_lms_1$tau.df),
+  nu.formula = ~pb(interview_age, area_lms_1$nu.df),
+  family = BCPEo,
+  data = na.omit(thickness)
+)
+
+# power transformation, random effects, no smoothing for tau and nu
+area_model_10 <- gamlss(
+  area ~ pb(interview_age^area_lms_1$power, df = area_lms_1$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~interview_age,
+  nu.formula = ~interview_age,
+  family = BCPEo,
+  data = brain_data
+)
+
+# no power transformation, random effects, no smoothing for tau and nu
+area_model_11 <- gamlss(
+  area ~ pb(interview_age, df = area_lms_1$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~interview_age,
+  nu.formula = ~interview_age,
+  family = BCPEo,
+  data = na.omit(thickness)
+)
+
+# residual diagnostices for model 7
+# one q-stat under 0.05
+round(Q.stats(area_model_7, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_7, xvar = na.omit(thickness)$interview_age)
+
+# residual diagnostices for model 9
+# one q-stat under 0.05
+round(Q.stats(area_model_9, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_9, xvar = na.omit(thickness)$interview_age)
+
+# residual diagnostices for model 10
+# no q-stat under 0.05
+round(Q.stats(area_model_10, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_10, xvar = na.omit(thickness)$interview_age)
+
+# plot centiles for model 10
+fitted_centiles_legend(
+  area_model_10,
+  xvar = thickness %>% na.omit %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "interview age (months)",
+       y = "Cortical Surface Area") +
+  theme_minimal()
+
+# residual diagnostices for model 11
+# no q-stat under 0.05
+round(Q.stats(area_model_11, xvar = na.omit(thickness)$interview_age), 3)
+wp(area_model_11, xvar = na.omit(thickness)$interview_age)
+
+GAIC(area_model_7, area_model_9, area_model_10, area_model_11)
+
+GAIC(area_model_7,  k = log(nrow(na.omit(thickness))))
+GAIC(area_model_9,  k = log(nrow(na.omit(thickness))))
+GAIC(area_model_10, k = log(nrow(na.omit(thickness)))) # MODEL 10 HAS BEST GAIC
+GAIC(area_model_11, k = log(nrow(na.omit(thickness))))
+```
+
+note: model total brain volume
+
+# Rewrite Centiles Function
+
+```{r}
+
+obj <- area_model_10
+xvar <- na.omit(thickness)$interview_age
+cent <- c(97.5, 50, 2.5)
+points <- TRUE
+point.col <- "gray"
+point.size <- 1
+line.size <- .8
+line.col <- hcl.colors(length(cent), palette = "Dark2")
+line.type <- rep(1, length(cent))
+show.legend <- TRUE
+save.data <- FALSE
+xlab <- NULL
+ylab <- NULL
+
+
+obj_male <- gamlss(
+  area ~ pb(interview_age^area_lms_1$power, df = area_lms_1$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~interview_age,
+  nu.formula = ~interview_age,
+  family = BCPEo,
+  data = na.omit(thickness) |> filter(sex == "Male")
+)
+
+obj_female <- gamlss(
+  area ~ pb(interview_age^area_lms_1$power, df = area_lms_1$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = area_lms_1$sigma.df),
+  tau.formula = ~interview_age,
+  nu.formula = ~interview_age,
+  family = BCPEo,
+  data = na.omit(thickness) |> filter(sex == "Female")
+)
+
+
+# get x variable name from model object formula call
+xvar_name <- deparse(substitute(xvar))
+# get data from model object
+model_data <- eval(obj$call[["data"]])
+
+data_male <- thickness |>
+  na.omit() |>
+  filter(sex == "Male")
+
+data_female <- thickness |>
+  na.omit() |>
+  filter(sex == "Female")
+
+# initialize x and y
+x <- y <- NULL
+# get xvar data
+xvar <- try(xvar, silent = TRUE)
+
+xvar_male <- data_male$interview_age
+xvar_female <- data_female$interview_age
+
+
+
+# family name
+fname <- obj$family[1]
+# q function
+qfun <- paste("q", fname, sep = "")
+# order of x and y variable
+oxvar <- xvar[order(xvar)]
+oyvar <- obj$y[order(xvar)]
+
+oxvar_male <- xvar_male[order(xvar_male)]
+oxvar_female <- xvar_female[order(xvar_female)]
+oyvar_male <- obj_male$y[order(xvar_male)]
+oyvar_female <- obj_female$y[order(xvar_female)]
+
+
+# set color
+col <- 3
+# set length of parameters
+param_length <- length(obj$parameters)
+ii <- 0
+per <- rep(0, length(cent))
+
+# centile matrix
+centile_matrix <- matrix(0, ncol = length(cent), nrow = dim(model_data)[1])
+centile_matrix_male <- matrix(0, ncol = length(cent), nrow = dim(data_male)[1])
+centile_matrix_female <- matrix(0, ncol = length(cent), nrow = dim(data_female)[1])
+
+# calculate centiles
+for(var in cent) {
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(obj,"mu")[order(xvar)],
+    sigma = fitted(obj,"sigma")[order(xvar)],
+    nu = fitted(obj,"nu")[order(xvar)],
+    tau = fitted(obj,"tau")[order(xvar)]) 
+  ii <- ii + 1
+    centile_matrix[,ii] <- eval(newcall)
+}
+
+
+ii <- 0
+# calculate centiles (male)
+for(var in cent) {
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(obj_male,"mu")[order(xvar_male)],
+    sigma = fitted(obj_male,"sigma")[order(xvar_male)],
+    nu = fitted(obj_male,"nu")[order(xvar_male)],
+    tau = fitted(obj_male,"tau")[order(xvar_male)]) 
+  ii <- ii + 1
+    centile_matrix_male[,ii] <- eval(newcall)
+}
+
+
+ii <- 0
+# calculate centiles (female)
+for(var in cent) {
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(obj_female,"mu")[order(xvar_female)],
+    sigma = fitted(obj_female,"sigma")[order(xvar_female)],
+    nu = fitted(obj_female,"nu")[order(xvar_female)],
+    tau = fitted(obj_female,"tau")[order(xvar_female)]) 
+  ii <- ii + 1
+    centile_matrix_female[,ii] <- eval(newcall)
+}
+
+# get y variable name
+yvar_name <- paste(obj$call$formula[[2]])
+centile_length <- length(cent)
+centile_data <- data.frame(c = centile_matrix, x = oxvar, y = oyvar)
+centile_data_male <- data.frame(c = centile_matrix_male, x = oxvar_male, y = oxvar_male)
+centile_data_female <- data.frame(c = centile_matrix_female, x = oxvar_female, y = oxvar_female)
+
+centile_names <- colnames(centile_data)
+centile_names_male <- colnames(centile_data_male)
+centile_names_female <- colnames(centile_data_female)
+
+# plot centiles
+ggplot(data = centile_data) +
+  geom_point(aes(x = x, y = y), color = "gray", size = 1) +
+  geom_line(data = centile_data_male, aes(x = x, y = c.1), size = 1.5, linetype = "dotted", color = "dodgerblue2") + 
+  geom_line(data = centile_data_male, aes(x = x, y = c.2), size = 1.5, color = "dodgerblue2") +
+  geom_line(data = centile_data_male, aes(x = x, y = c.3), size = 1.5, linetype = "dotted", color = "dodgerblue2") +
+  geom_line(data = centile_data_female, aes(x = x, y = c.1), size = 1.5, linetype = "dotted", color = "pink3") + 
+  geom_line(data = centile_data_female, aes(x = x, y = c.2), size = 1.5, color = "pink3") +
+  geom_line(data = centile_data_female, aes(x = x, y = c.3), size = 1.5, linetype = "dotted", color = "pink3") +
+  theme_minimal()
+
+
+
+```
+
+```{r}
+#| label: sex-stratified-centiles
+
+brain_data <- na.omit(thickness)
+brain_data_male <- brain_data |> filter(sex == "Male")
+brain_data_female <- brain_data |> filter(sex == "Female")
+
+# step 1: build lms to estimate power params
+# this will be its own function that does not plot centiles
+lms_model <- lms(area, interview_age, families = c("BCPEo"), data = brain_data, trans.x = TRUE, k = 2)
+lms_power <- lms_model$power
+
+lms_model_male <- lms(area, interview_age, families = c("BCPEo"), data = brain_data_male, trans.x = TRUE, k = 2)
+lms_power_male <- lms_model_male$power
+
+lms_model_female <- lms(area, interview_age, families = c("BCPEo"), data = brain_data_female, trans.x = TRUE, k = 2)
+lms_power_female <- lms_model_female$power
+
+# model diagnostics
+GAIC(lms_model, lms_model_male, lms_model_female)
+wp(lms_model)
+wp(lms_model_male)
+wp(lms_model_female)
+
+# step 2: build gamlss models
+area_model_male <- gamlss(
+  area ~ pb(interview_age^lms_power_male, df = lms_model_male$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = lms_model_male$sigma.df),
+  tau.formula = ~interview_age,
+  nu.formula = ~interview_age,
+  family = BCPEo,
+  data = brain_data_male
+)
+
+area_model_female <- gamlss(
+  area ~ pb(interview_age^lms_power_female, df = lms_model_female$mu.df) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(interview_age, df = lms_model_female$sigma.df),
+  tau.formula = ~interview_age,
+  nu.formula = ~interview_age,
+  family = BCPEo,
+  data = brain_data_female
+)
+
+
+wp(area_model_male)
+wp(area_model_female)
+GAIC(area_model_10, area_model_male, area_model_female)
+
+# step 3: calculate centiles
+
+cent <- c(97.5, 50, 2.5)
+
+xvar_male <- brain_data_male$interview_age
+xvar_female <- brain_data_female$interview_age
+oxvar_male <- xvar_male[order(xvar_male)]
+oxvar_female <- xvar_female[order(xvar_female)]
+oyvar_male <- obj_male$y[order(xvar_male)]
+oyvar_female <- obj_female$y[order(xvar_female)]
+
+# family name
+fname <- "BCPEo"
+# q function
+qfun <- paste("q", fname, sep = "")
+
+centile_matrix_male <- matrix(0, ncol = length(cent), nrow = dim(brain_data_male)[1])
+centile_matrix_female <- matrix(0, ncol = length(cent), nrow = dim(brain_data_female)[1])
+
+ii <- 0
+# calculate centiles (male)
+for(var in cent) {
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(obj_male,"mu")[order(xvar_male)],
+    sigma = fitted(obj_male,"sigma")[order(xvar_male)],
+    nu = fitted(obj_male,"nu")[order(xvar_male)],
+    tau = fitted(obj_male,"tau")[order(xvar_male)]) 
+  ii <- ii + 1
+    centile_matrix_male[,ii] <- eval(newcall)
+}
+
+
+ii <- 0
+# calculate centiles (female)
+for(var in cent) {
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(obj_female,"mu")[order(xvar_female)],
+    sigma = fitted(obj_female,"sigma")[order(xvar_female)],
+    nu = fitted(obj_female,"nu")[order(xvar_female)],
+    tau = fitted(obj_female,"tau")[order(xvar_female)]) 
+  ii <- ii + 1
+    centile_matrix_female[,ii] <- eval(newcall)
+}
+
+centile_data_male <- data.frame(c = centile_matrix_male, x = oxvar_male, y = oyvar_male)
+centile_data_female <- data.frame(c = centile_matrix_female, x = oxvar_female, y = oyvar_female)
+
+centile_names_male <- colnames(centile_data_male)
+centile_names_female <- colnames(centile_data_female)
+
+library(latex2exp)
+# plot centiles
+area_centiles_1 <- ggplot(data = brain_data |> filter(sex != "Intersex-Male")) +
+  geom_point(aes(x = interview_age, y = area , color = sex),
+             size = 1, alpha = 0.05, show.legend = FALSE) +
+  geom_line(data = centile_data_male, aes(x = x, y = c.1),
+            size = 1.5, linetype = "dashed", color = "steelblue2") + 
+  geom_line(data = centile_data_male, aes(x = x, y = c.2),
+            size = 1.5, color = "steelblue2") +
+  geom_line(data = centile_data_male, aes(x = x, y = c.3),
+            size = 1.5, linetype = "dashed", color = "steelblue2") +
+  geom_line(data = centile_data_female, aes(x = x, y = c.1),
+            size = 1.5, linetype = "dashed", color = "tomato1") + 
+  geom_line(data = centile_data_female, aes(x = x, y = c.2),
+            size = 1.5, color = "tomato1") +
+  geom_line(data = centile_data_female, aes(x = x, y = c.3),
+            size = 1.5, linetype = "dashed", color = "tomato1") +
+  scale_color_manual(values = c("steelblue2", "tomato1")) +
+  scale_x_continuous(breaks = c(108,120,132,144, 156, 168,180,192),
+                     labels = c(9,10,11,12,13,14,15,16)) +
+  scale_y_continuous(label = comma) +
+  theme_minimal() +
+  labs(
+    x = "Interview age in years",
+    y = TeX("Total Cortical Surface Area in $mm^2$"),
+    title = "Centiles for total cortical surface area of adolescents",
+    subtitle = "fitted with Box-Cox Power Exponential original family",
+    caption = "Includes 2.5, 50, and 97.5 centiles, stratified by sex (Red: Female, Blue: Male)"
+  )
+
+
+ggsave(filename = "area_centiles_1.png")
+ggplotly(area_centiles_1, tooltip = c("interview_age", "area", "gender"))
+```
+
+```{r}
+#| label: power-transform-function
+#| warning: false
+
+# initialize for testing
+filter_var1 = "sex"
+filter_val1 = "Male"
+filter_var2 = "race_ethnicity"
+filter_val2 = "White"
+ycol = substitute(area)
+xcol = substitute(interview_age)
+
+subset_data <- function(
+    brain_data,
+    xcol,
+    ycol,
+    filter_var1 = NULL,
+    filter_val1 = NULL,
+    filter_var2 = NULL,
+    filter_val2 = NULL
+) {
+  brain_data <- brain_data |>
+    filter(sex != "Intersex-Male") |>
+    mutate(sex = factor(sex)) |>
+    na.omit()
+  
+    # filter data
+  if(!is.null(filter_var1) & !is.null(filter_val1) & is.null(filter_var2) & is.null(filter_var2)) {
+    data_subset <- subset(
+      brain_data, brain_data[[filter_var1]] == filter_val1)
+  }
+  if(!is.null(filter_var1) & !is.null(filter_val1) & !is.null(filter_var2) & !is.null(filter_var2)) {
+    data_subset <- subset(
+      brain_data, brain_data[[filter_var1]] == filter_val1 & brain_data[[filter_var2]] == filter_val2)
+  }
+  if(is.null(filter_var1) & is.null(filter_var2)) {
+    data_subset <- brain_data
+    }
+  
+  data_subset$xvar <- data_subset[[xcol]]
+  data_subset$yvar <- data_subset[[ycol]]
+  
+  return(data_subset)
+}
+
+
+area_model <- function(data_subset) {
+  
+  power <- gamlss::findPower(yvar, xvar, data = data_subset, k = 2)
+  
+  # build gamlss model
+  model <- gamlss(
+  yvar ~ pb(xvar^power) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(xvar),
+  tau.formula = ~xvar,
+  nu.formula = ~xvar,
+  family = BCPEo,
+  data = data_subset
+  )
+
+  return(model)
+}
+
+# find all sex and race combinations
+brain_data <- brain_data |> filter(sex != "Intersex-Male") |> mutate(sex = factor(sex))
+demog_combos <- brain_data |>
+  expand(sex, race_ethnicity)
+
+# subset data for each combination of sex and race
+demog_combos <- as.matrix(demog_combos)
+data_list <- list()
+for(row in 1:nrow(demog_combos)) {
+  data_list[[row]] = subset_data(
+    brain_data,
+    xcol = substitute(interview_age),
+    ycol = substitute(area),
+    filter_var1 = "sex",
+    filter_val1 = demog_combos[row, 1],
+    filter_var2 = "race_ethnicity",
+    filter_val2 = demog_combos[row, 2])
+}
+
+# create models for each combination of sex and race
+model_list <- list()
+demog_combos
+for(row in 1:nrow(demog_combos)) {
+  print(paste("FITTING MODEL", row, ":", demog_combos[row,2], demog_combos[row,1]))
+  model_list[[row]] = area_model(
+    data_subset = data_list[[row]])
+  model_name <- paste(demog_combos[row, 1], demog_combos[row, 2], "Model", sep = "_")
+  assign(model_name, model_list[[row]])
+}
+
+for(item in 1:length(model_list)) {
+  print(paste("MODEL", item, sep = " "))
+  wp(model_list[[item]])
+}
+
+# calculate centiles
+cent <- c(97.5, 50, 2.5)
+
+filter_var1 = "sex"
+filter_val1 = "Male"
+filter_var2 = "race_ethnicity"
+filter_val2 = "White"
+point_color_sex = TRUE
+ycol = substitute(area)
+xcol = substitute(interview_age)
+
+
+calculate_centiles <- function(
+  model,
+  model_data,
+  xcol,
+  ycol,
+  cent = c(97.5, 50, 2.5)
+) {
+
+xvar_ch <- deparse(xcol)
+obj = model
+x <- y <- NULL
+
+xvar  <- get(xvar_ch, envir=as.environment(model_data))
+fname <- obj$family[1]
+qfun <- paste("q",fname,sep ="")
+oxvar <- xvar[order(xvar)]
+oyvar <- obj$y[order(xvar)]
+
+lpar <- 4
+
+ii <- 0
+per <- rep(0, length(cent))
+centile_matrix <- matrix(0, ncol = length(cent), nrow = dim(model_data)[1])
+colnames(centile_matrix) <- cent
+
+for(var in cent) {
+  newcall <- call(qfun,var/100, mu=fitted(obj,"mu")[order(xvar)],
+                     sigma=fitted(obj,"sigma")[order(xvar)],
+                     nu=fitted(obj,"nu")[order(xvar)],
+                     tau=fitted(obj,"tau")[order(xvar)]) 
+    ii <- ii + 1
+    centile_matrix[,ii] <- eval(newcall)
+}
+
+yvar_ch <- paste(obj$call$formula[[2]])
+
+lc <- length(cent)
+centile_data <- data.frame(
+  centile = centile_matrix,
+  x = oxvar,
+  y = oyvar)
+
+return(centile_data)
+}
+
+model <- area_model_10
+model_data <- brain_data
+
+area_centiles_plot <- function(
+    model,
+    model_data,
+    xcol,
+    ycol,
+    sex_val = "All",
+    race_val = "All",
+    cent = c(2.5, 50, 97.5),
+    points = TRUE
+    ) {
+  
+  centile_data <- calculate_centiles(model, model_data, xcol, ycol, cent)
+  lc <- length(cent)
+  c_names <- colnames(centile_data)
+  line.size = 1.5
+  line.col = hcl.colors(lc, palette = "Dark 2")
+  line.type = rep(1, length(cent))
+  
+  # initialize ggplot object
+  gg <- ggplot(data = centile_data)
+  
+  if(points) {
+    gg <- gg + geom_point(aes(x = x, y = y),
+             size = 1, alpha = 0.05, show.legend = FALSE)
+  }
+  for(i in 1:lc) {
+    
+    if(c_names[i] == "centile.50") {
+      gg <- gg +
+      geom_line(
+        aes_string(x = "x", y = c_names[i]),
+        color = line.col[i], linewidth = line.size)
+    }
+    
+    else {
+      gg <- gg +
+      geom_line(
+        aes_string(x = "x", y = c_names[i]),
+        color = line.col[i], linetype = "dashed", linewidth = line.size)
+    }
+    
+  }
+  
+  gg <- gg + theme_minimal()  
+  
+  return(gg)
+}
+
+area_centiles_plot(model = area_model_10,
+                   model_data = brain_data,
+                   ycol = substitute(area),
+                   xcol = substitute(interview_age))
+
+area_centiles_1 <- ggplot(data = brain_data) +
+  geom_point(aes(x = interview_age, y = area),
+             size = 1, alpha = 0.05, show.legend = FALSE) +
+  geom_line(data = centile_data, aes(x = x, y = centile.2.5),
+            size = 1.5, linetype = "dashed", color = "steelblue2") + 
+  geom_line(data = centile_data, aes(x = x, y = centile.50),
+            size = 1.5, color = "steelblue2") +
+  geom_line(data = centile_data, aes(x = x, y = centile.97.5),
+            size = 1.5, linetype = "dashed", color = "steelblue2") +
+  theme_minimal()
+
+fitted_centiles(area_model_10)
+
+```
+
+
+```{r}
+
+gg_centiles <- function(
+    brain_data,
+    xcol,
+    ycol,
+    filter_var1 = NULL,
+    filter_val1 = NULL,
+    filter_var2 = NULL,
+    filter_val2 = NULL
+  ) {
+  
+}
+```
+
+```{r}
+
+calculate_centiles <- function(
+    brain_data,
+    xcol,
+    ycol,
+    filter_var1 = NULL,
+    filter_val1 = NULL,
+    filter_var2 = NULL,
+    filter_val2 = NULL
+    ) {
+  
+}
+
+centiles.pred(area_model_10,
+              type = centiles,
+              xname = "interview_age",
+              power = TRUE,
+              xvalues = newx)
+```

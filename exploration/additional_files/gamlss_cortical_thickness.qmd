@@ -1,0 +1,1681 @@
+---
+title: "longitudinal_gp"
+format: html
+editor: visual
+---
+
+# loading packages!
+
+```{r}
+#| label: load-packages
+#| warning: false
+
+
+library(tidyverse)
+library(gamlss)
+library(ggseg)
+
+
+
+# for Nichole
+data_dir <- "/Users/nicholezhang/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core"
+
+setwd(data_dir)
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c(999, 777))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+# desikan atlas, cortical thickness
+dat.mri = read.csv('imaging/mri_y_smr_thk_dsk.csv')
+# desikan atlas, cortical surface area
+dat.mri.area = read.csv('imaging/mri_y_smr_area_dst.csv')
+
+
+
+
+demog_clean <- demog |>
+  filter(eventname %in% c(
+    "baseline_year_1_arm_1",
+    "2_year_follow_up_y_arm_1",
+    "4_year_follow_up_y_arm_1")) |>
+  # select relevant variables
+   dplyr::select(
+     src_subject_id,
+     eventname,
+     starts_with("demo_brthdat_v2"),
+     demo_sex_v2,
+     starts_with("demo_gender_id_v2"),
+     starts_with("demo_race_a_p___"),
+     starts_with("demo_ethn"),
+     demo_prnt_years_us_v2,
+     starts_with("demo_prnt_marital_v2"),
+     starts_with("demo_prnt_ed_v2"),
+     starts_with("demo_prnt_income_v2"),
+     starts_with("demo_prnt_prtnr_v2"),
+     starts_with("demo_prnt_prtnr_bio"),
+     starts_with("demo_prnt_prtnr_adopt"),
+     starts_with("demo_prtnr_ed_v2"),
+     starts_with("demo_prtnr_income_v2"),
+     starts_with("demo_comb_income_v2"),
+     starts_with("demo_med_insur"),
+     starts_with("demo_ethn"),
+     demo_biofather_v2,
+     demo_biomother_v2,
+     race_ethnicity,
+     acs_raked_propensity_score
+     ) 
+
+demog_baseline_long <- demog_clean |>
+  # pivot race variables
+  pivot_longer(cols = starts_with("demo_race_a_p___"),
+               names_to = "race",
+               values_to = "is_race",
+               values_drop_na = TRUE,
+               names_prefix = "demo_race_a_p___") |>
+ # select(race, is_race, src_subject_id) |>
+  filter(is_race != 0 | is.na(is_race)) |>
+  mutate(race = case_match(
+    race,
+    "10" ~ "White",
+    "11" ~ "Black",
+    "12" ~ "Native American",
+    "13" ~ "Alaskan Native",
+    "14" ~ "Native Hawaiian",
+    "15" ~ "Guamanian",
+    "16" ~ "Samoan",
+    "17" ~ "Other Pacific Islander",
+    "18" ~ "Asian Indian",
+    "19" ~ "Chinese",
+    "20" ~ "Filipino",
+    "21" ~ "Japanese",
+    "22" ~ "Korean",
+    "23" ~ "Vietnamese",
+    "24" ~ "Other Asian Race",
+    "25" ~ "Other Race",
+    .default = NA
+  )) |>
+  distinct() |>
+  group_by(src_subject_id) |>
+  mutate(order = row_number()) |>
+  ungroup()
+
+# reformat wide and continue cleaning
+demog_baseline_wide <- demog_baseline_long |>
+  pivot_wider(names_from = order, values_from = race, values_fill = NA, names_prefix = "race_") |>
+   #clean hispanic origin variable 
+  mutate(
+    hispanic_origin = case_match(
+      demo_ethn_v2,
+      1 ~ "Hispanic or Latino",
+      2 ~ "Not Hispanic or Latino",
+      .default = NA),
+    hispanic_origin_spec = case_match(
+    demo_ethn2_v2, 
+    10 ~ "(Puerto Rican)", 
+    12 ~ "(Dominican)",
+    13 ~ "(Mexican)", 
+    14 ~ "(Mexican American)", 
+    15 ~ "(Chicano)", 
+    18 ~ "(Cuban)", 
+    19 ~ "(Cuban American)", 
+    20 ~ "(Central or South American)", 
+    40 ~ "(Other Latin American origin)", 
+    41 ~ "(Other Hispanic)", 
+    .default = NA),
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    )) |>
+  rename(
+    parent_years_us_baseline = demo_prnt_years_us_v2
+  ) |>
+  dplyr::select(src_subject_id, race_1:race_5, hispanic_origin, hispanic_origin_spec, sex, parent_years_us_baseline)
+
+demog_clean <- demog_clean |>
+ mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ trunc(demo_brthdat_v2_l)),
+    gender_id = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_gender_id_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_gender_id_v2_l),
+    gender_id = case_match(
+      gender_id,
+      1 ~ "Male",
+      2 ~ "Female",
+      3 ~ "Trans male",
+      4 ~ "Trans female",
+      5 ~ "Genderqueer",
+      6 ~ "Other"
+    ),
+    parent_marital_status = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prnt_marital_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prnt_marital_v2_l
+    ),
+    parent_marital_status = case_match(
+      parent_marital_status,
+      1 ~ "Married",
+      2 ~ "Widowed",
+      3 ~ "Divorced",
+      4 ~ "Separated",
+      5 ~ "Never Married",
+      6 ~ "Living with Partner"),
+    parent_ed = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prnt_ed_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prnt_ed_v2_2yr_l
+    ),
+    parent_ed = case_match(
+      parent_ed,
+      0 ~ "Never attended / Kindergarten",
+      1 ~ "1st Grade",
+      2 ~ "2nd Grade",
+      3 ~ "3rd Grade",
+      4 ~ "4th Grade",
+      5 ~ "5th Grade",
+      6 ~ "6th Grade",
+      7 ~ "7th Grade",
+      8 ~ "8th Grade",
+      9 ~ "9th Grade",
+      10 ~ "10th Grade",
+      11 ~ "11th Grade",
+      12 ~ "12th Grade - No Diploma",
+      13 ~ "High School Graduate",
+      14 ~ "GED or Equivalent",
+      16 ~ "Associate Degree: Occupational, Technical or Vocational",
+      17 ~ "Associate Degree: Academic Program",
+      18 ~ "Bachelor's Degree",
+      19 ~ "Master's Degree",
+      20 ~ "Professional School Degree",
+      21 ~ "Doctoral Degree",
+      22 ~ "Less than 1 year of college",
+      23 ~ "One year or more of college credit - no degree"
+    ),
+    parent_income = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prnt_income_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prnt_income_v2_l),
+    parent_income = case_match(
+      parent_income,
+        1 ~ "Less than $5,000",
+        2 ~ "$5,000 to $11,999",
+        3 ~ "$12,000 to $15,999",
+        4 ~ "$16,000 to $24,999",
+        5 ~ "$25,000 to $34,999",
+        6 ~ "$35,000 to $49,999",
+        7 ~ "$50,000 to $74,999",
+        8 ~ "$75,000 to $99,999",
+        9 ~ "$100,000 to $199,999",
+        10 ~ "$200,000 and over"
+      ),
+    parent_partner = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prnt_prtnr_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prnt_prtnr_v2_l),
+    parent_partner = if_else(parent_partner == 1, 1, 0),
+    parent_partner_bio = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prnt_prtnr_bio,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prnt_prtnr_bio_l),
+    parent_partner_bio = if_else(parent_partner_bio == 1, 1, 0),
+    parent_partner_adopt = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prnt_prtnr_adopt,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prnt_prtnr_adopt_l),
+    parent_partner_adopt = if_else(parent_partner_adopt == 1, 1, 0),
+    parent_partner_ed = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prtnr_ed_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prtnr_ed_v2_2yr_l
+    ),
+    parent_partner_ed = case_match(
+      parent_partner_ed,
+      0 ~ "Never attended / Kindergarten",
+      1 ~ "1st Grade",
+      2 ~ "2nd Grade",
+      3 ~ "3rd Grade",
+      4 ~ "4th Grade",
+      5 ~ "5th Grade",
+      6 ~ "6th Grade",
+      7 ~ "7th Grade",
+      8 ~ "8th Grade",
+      9 ~ "9th Grade",
+      10 ~ "10th Grade",
+      11 ~ "11th Grade",
+      12 ~ "12th Grade - No Diploma",
+      13 ~ "High School Graduate",
+      14 ~ "GED or Equivalent",
+      16 ~ "Associate Degree: Occupational, Technical or Vocational",
+      17 ~ "Associate Degree: Academic Program",
+      18 ~ "Bachelor's Degree",
+      19 ~ "Master's Degree",
+      20 ~ "Professional School Degree",
+      21 ~ "Doctoral Degree",
+      22 ~ "Less than 1 year of college",
+      23 ~ "One year or more of college credit - no degree"
+    ),
+    parent_partner_income = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prtnr_income_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prtnr_income_v2_l),
+    parent_partner_income = case_match(
+      parent_partner_income,
+        1 ~ "Less than $5,000",
+        2 ~ "$5,000 to $11,999",
+        3 ~ "$12,000 to $15,999",
+        4 ~ "$16,000 to $24,999",
+        5 ~ "$25,000 to $34,999",
+        6 ~ "$35,000 to $49,999",
+        7 ~ "$50,000 to $74,999",
+        8 ~ "$75,000 to $99,999",
+        9 ~ "$100,000 to $199,999",
+        10 ~ "$200,000 and over"
+      ),
+    parent_partner_income = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_prtnr_income_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_prtnr_income_v2_l),
+    parent_partner_income = case_match(
+      parent_partner_income,
+        1 ~ "Less than $5,000",
+        2 ~ "$5,000 to $11,999",
+        3 ~ "$12,000 to $15,999",
+        4 ~ "$16,000 to $24,999",
+        5 ~ "$25,000 to $34,999",
+        6 ~ "$35,000 to $49,999",
+        7 ~ "$50,000 to $74,999",
+        8 ~ "$75,000 to $99,999",
+        9 ~ "$100,000 to $199,999",
+        10 ~ "$200,000 and over"
+      ),
+    combined_income = case_when(
+      eventname == "baseline_year_1_arm_1" ~ demo_comb_income_v2,
+      eventname %in% c(
+        "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1"
+        ) ~ demo_comb_income_v2_l),
+    combined_income = case_match(
+      combined_income,
+        1 ~ "Less than $5,000",
+        2 ~ "$5,000 to $11,999",
+        3 ~ "$12,000 to $15,999",
+        4 ~ "$16,000 to $24,999",
+        5 ~ "$25,000 to $34,999",
+        6 ~ "$35,000 to $49,999",
+        7 ~ "$50,000 to $74,999",
+        8 ~ "$75,000 to $99,999",
+        9 ~ "$100,000 to $199,999",
+        10 ~ "$200,000 and over"
+      ),
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    )
+    ) |>
+  dplyr::select(
+    -demo_prnt_years_us_v2,
+    -starts_with("demo_comb_income"),
+    -starts_with("demo_prtnr_income"),
+    -starts_with("demo_prtnr_ed"),
+    -starts_with("demo_prnt_prtnr"),
+    -starts_with("demo_ethn"),
+    -starts_with("demo_race"),
+    -starts_with("demo_brthdat"),
+    -starts_with("demo_gender_id"),
+    -demo_sex_v2,
+    -starts_with("demo_prnt_marital"),
+    -starts_with("demo_prnt_ed"),
+    -starts_with("demo_prnt_income")) |>
+  left_join(demog_baseline_wide, join_by("src_subject_id")) |>
+  unite("race", race_1:race_5, sep = ", ", na.rm = TRUE) #|>
+ # unite("hispanic_origin", c(hispanic_origin, hispanic_origin_spec), sep = " ", na.rm = TRUE)
+
+
+races <- demog_clean |>
+  filter(eventname == "2_year_follow_up_y_arm_1") |>
+  dplyr::select(src_subject_id, race, race_ethnicity, hispanic_origin) |>
+  mutate(race = factor(race),
+         race = fct_collapse(
+           race,
+           "Black, Native American" = c("White, Black, Native American", "Black, Native American", "White, Black, Native American, Other Race", "Black, Native American, Other Race", "Black, Native American, Other Pacific Islander", "White, Black, Native American, Other Pacific Islander"),
+           "Black" = c("Black", "Black, Other Race")
+           )) |>
+  distinct() |>
+  count(race) |>
+  filter(race != "") |>
+  drop_na() |>
+  arrange(desc(n))
+
+
+
+
+
+
+
+
+
+```
+
+# yay data
+
+```{r}
+#| label: load-data!
+
+comb <- demog_clean |> 
+  left_join(dat.mri, 
+            by = join_by(src_subject_id, eventname)) |> 
+  left_join(study_covars, 
+            by = join_by(src_subject_id, eventname)) 
+
+comb <- comb |> 
+  group_by(src_subject_id) 
+
+
+#omg pretty straight line!!! 
+comb |> 
+  ggplot(aes(x = interview_age, y = smri_thick_cdk_mean), na.rm= TRUE) + 
+  geom_point(alpha = 0.4) + 
+  geom_smooth() 
+
+
+#omg is it alwaysss straight 
+
+comb |> 
+  pivot_longer(cols = (smri_thick_cdk_banksstslh:smri_thick_cdk_trvtmrh), 
+               names_to = "phenotype") |> 
+  group_by(phenotype) |>
+  summarize(mean(value, na.rm = TRUE), 
+            var(value, na.rm = TRUE))
+  
+  
+  #densities 
+  ggplot(aes(x = value, color = phenotype)) + 
+  geom_density() + 
+  theme(legend.position = 'none')
+  
+  
+  #cortical thickness over time 
+  #ggplot(aes(x = interview_age, y = value, color = phenotype), na.rm = TRUE) + 
+  #geom_smooth() + 
+  #theme(legend.position = 'none')
+
+
+
+comb |> 
+  ggplot(aes(x = interview_age, y = smri_thick_cdk_mean)) + 
+  geom_point() + 
+  geom_smooth()
+
+  
+
+```
+
+# okay.... gaussian processes???
+
+```{r}
+#| label: gaussian-processes?? 
+
+#oops quick data cleaning 
+comb$src_subject_id <- as.factor(comb$src_subject_id)
+comb$sex <- as.factor(comb$sex)
+comb$eventname <- as.factor(comb$eventname)
+comb$site_id_l <- as.factor(comb$site_id_l)
+comb$interview_age <- as.numeric(comb$interview_age)
+
+comb_clean <- comb |> 
+  drop_na(sex) |> 
+  drop_na(interview_age) |> 
+  drop_na(smri_thick_cdk_mean)
+
+comb_clean <- as.data.frame(comb_clean)
+
+
+#first model <3 
+gp1 <- create_model(smri_thick_cdk_mean ~ interview_age + 
+             interview_age | sex + 
+             interview_age | src_subject_id, 
+           data = comb_clean)
+
+#parameter summary: five magnitude parameters (alpha) for each component (age, ID, sex) + 3 lengthscale parameters (ell) + gaussian noise parameter sigma 
+param_summary(gp1)
+
+
+comb_clean |> 
+  summarize(cdk_mean = mean(smri_thick_cdk_mean), 
+            cdk_var = var(smri_thick_cdk_mean))
+
+cdk_mean <- 2.721963
+cdk_se <- sqrt(0.007155704)
+
+
+#i will try to use a linear model to make educated guess priors for model! 
+linear_model <- lmer(smri_thick_cdk_mean ~ interview_age + sex + (1 | src_subject_id) 
+                     + (1 | sex), 
+                   data = comb_clean, na.action = na.exclude)
+confint(linear_model)
+
+
+
+#building model using lgp function... i think it's more complicated the other way 
+
+#sample dataframe to build model on  
+sample_df <- sample_n(comb_clean, 5000)
+
+
+#okay priors 
+
+priors <- list( 
+  alpha = lgpr::normal(mu = 0, sigma = 0.5), #gaussian for alpha parameters
+  ell = lgpr::igam(shape = 5, scale = 5) #inv gamma for length scale parameters 
+) 
+
+
+
+
+#okay... fit!
+fit <- lgp(smri_thick_cdk_mean ~ interview_age + 
+             interview_age | sex + 
+             interview_age | src_subject_id, 
+           data = sample_df, 
+           iter = 2000, 
+           chains = 4, 
+           refresh = 500, 
+           prior = priors)
+
+print(fit)
+
+plot_draws(fit, type = 'dens')
+
+
+#can study fit@stan_fit as a stanfit object
+sf <- fit@stan_fit 
+
+
+
+
+#average relevance of each component 
+rel <- relevances(fit, reduce = mean)
+data.frame(rel)
+
+#that's weird! look at what the sampled data actually looks like... 
+ggplot(aes(x = interview_age, y = smri_thick_cdk_mean), 
+       data = sample_df) + 
+  geom_point() + 
+  geom_smooth()
+
+
+
+
+sampler_params <- rstan::get_sampler_params(sf, inc_warmup = FALSE)
+myfun <- function(x) mean(x[, "accept_stat__"])
+mean_accept_stat_by_chain <- sapply(sampler_params, myfun)
+print(mean_accept_stat_by_chain)
+
+
+
+
+
+
+```
+
+# okay... gamlss...
+
+```{r}
+#| label: mark-gamlss-code
+
+library(gamlss)
+
+
+test_data = comb |> 
+  dplyr::select(src_subject_id, interview_age, 
+                smri_thick_cdk_mean) |> 
+  mutate(interview_age = as.numeric(interview_age), 
+         thick = as.numeric(smri_thick_cdk_mean), 
+         age_years = interview_age/12) |> 
+  dplyr::select(-c(smri_thick_cdk_mean)) |> 
+  drop_na()
+
+
+
+model.fit = gamlss(thick~ sex + gamlss::cs(interview_age,df=3),
+                   sigma.fo=~interview_age,
+                   nu.fo=~interview_age,
+                   tau.fo=~interview_age,
+                   family=TF, data=test_data %>% na.omit,
+                   control = gamlss.control(c.crit = 0.005,n.cyc=200))
+
+centiles(model.fit, 
+         xvar = test_data %>% na.omit %>% dplyr::select(interview_age) %>% pull, 
+         bg = 'transparent')
+
+
+
+
+
+summary(model.fit)
+
+centiles(model.fit, xvar = test_data %>%
+           na.omit %>%
+           dplyr::select(interview_age) %>%
+           pull, 
+         bg = 'transparent')
+
+```
+
+```{r}
+#| label: yay-cortical-thickness
+
+#dataset with stuff that doesn't change (race) 
+
+baseline_demog <- demog_clean |> 
+  filter(eventname == "baseline_year_1_arm_1") |>
+  dplyr::select(src_subject_id, race_ethnicity, combined_income) 
+
+
+
+
+#dataset for model building   
+thickness_data <- comb |> 
+  #get demographic variables from baseline
+  dplyr::select(-c(race_ethnicity, combined_income)) |>
+  left_join(baseline_demog, by = join_by(src_subject_id)) |> 
+  
+  #select relevant variables 
+  dplyr::select(site_id_l, src_subject_id, eventname, interview_age, 
+                smri_thick_cdk_mean, sex, race_ethnicity, combined_income) |> 
+  filter(sex %in% c("Male", "Female")) |> 
+  
+  #make variable type okay for model processing  
+  mutate(interview_age = as.numeric(interview_age), 
+         site_id_l = as.factor(site_id_l), 
+         src_subject_id = as.factor(src_subject_id), 
+         race_ethnicity = as.factor(race_ethnicity), 
+         sex = as.factor(sex), 
+         combined_income = as.factor(combined_income)) |> 
+  drop_na()
+
+
+#exploratory data analysis 
+
+#differences by phenotype? 
+thickness_data |> 
+  pivot_longer(cols = (smri_thick_cdk_banksstslh:smri_thick_cdk_trvtmrh), 
+               names_to = "phenotype") |> 
+  #thickness over time  
+  ggplot(aes(x = interview_age, y = value, color = phenotype)) + 
+  geom_smooth(method = 'gam') 
+  
+
+thickness_data |> 
+  group_by(src_subject_id) |>
+  filter()
+  mutate(eventname = factor(eventname, levels = c("baseline_year_1_arm_1", 
+                                                  "2_year_follow_up_y_arm_1", 
+                                                  "4_year_follow_up_y_arm_1")))|>
+    
+  #make columns for the differences 
+  mutate(mean_diff_2year = if_else(eventname == "2_year_follow_up_y_arm_1", 
+                                   smri_thick_cdk_mean - 
+                                   
+                                   
+                                   
+                                   
+                                   
+                                   NA), 
+         
+         mean_diff_4year = if_else(eventname == "4_year_follow_up_y_arm_1", 
+                                   smri_thick_cdk_mean - 
+                                     lag(smri_thick_cdk_mean[eventname == 
+                                                              baseline_year_1_arm_1]), NA)
+           ) |> 
+  #plot them 
+  ggplot(aes(x = interview_age, y = mean_diff_2year)) + 
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "gam")
+  
+  
+  
+  
+
+
+  
+
+
+
+
+```
+
+# model 1
+
+```{r}
+
+#| label: model-1
+
+
+#simple linear model wrt interview age, random effects for ID and site   
+
+model_1 = gamlss(smri_thick_cdk_mean ~ 
+                   
+                   interview_age + 
+                   #use subject ID as a random effect
+                   gamlss::random(src_subject_id) + 
+                   #and random effects for site ID 
+                   gamlss:: random(site_id_l), 
+                 #specify variance as a function of age 
+                 
+                 sigma.formula = ~interview_age, 
+                 #normal family 
+                 family = NO, 
+                 data = thickness_data %>% 
+                   na.omit) 
+
+#same linear model but with BCT family 
+
+model_1_bct = gamlss(smri_thick_cdk_mean ~ 
+                    interview_age + 
+                    gamlss:: random(src_subject_id) + 
+                    gamlss:: random(site_id_l), 
+                  family = BCT,
+                  data=thickness_data %>% na.omit)
+                 
+
+centiles(model_1, xvar = thickness_data %>%
+           na.omit %>%
+           dplyr::select(interview_age) %>%
+           pull, 
+         bg = 'transparent')                 
+
+
+
+
+wp(model_1_bct)
+
+summary(model_1)
+                    
+
+#AIC: -48245.94 
+
+
+```
+
+# model 2
+
+```{r}
+
+#| label: model-2
+
+
+#add smoothing effects for interview age  
+
+model_2 <- gamlss(smri_thick_cdk_mean ~ 
+                   #smoothed function wrt age
+                   gamlss::pb(interview_age) +  
+                   #use subject ID as a random effect
+                   gamlss::random(src_subject_id) + 
+                   #and random effects for site ID 
+                   gamlss:: random(site_id_l), 
+                  
+                 #normal family 
+                 family = NO, 
+                 data = thickness_data %>% 
+                   na.omit) 
+
+model_2_bct <- gamlss(smri_thick_cdk_mean ~ 
+                   #smooth function wrt age, sex
+                   gamlss::pb(interview_age) +
+                   #use subject ID as a random effect
+                   gamlss::random(src_subject_id) + 
+                   #and random effects for site ID 
+                   gamlss:: random(site_id_l), 
+                  
+                 #normal family 
+                 family = BCT, 
+                 data = thickness_data %>% 
+                   na.omit) 
+
+summary(model_2)
+wp(model_2)
+
+# AIC: -48238.99 
+
+```
+
+# model 3
+
+```{r}
+#| label: model-3 
+
+#smooth over age, let sigma vary over age   
+
+model_3 <- gamlss(smri_thick_cdk_mean ~ 
+                   #smooth function wrt age 
+                   gamlss::pb(interview_age) + 
+                   #use subject ID as a random effect
+                   gamlss::random(src_subject_id)+ 
+                   #and random effects for site ID 
+                   gamlss:: random(site_id_l), 
+                  
+                  #let variance vary over age 
+                  sigma.formula = ~pb(interview_age), 
+                  
+                 family = NO, 
+                 data = thickness_data %>% 
+                   na.omit) 
+
+
+
+model_3_bct <- gamlss(smri_thick_cdk_mean ~ 
+                   #smooth function wrt age 
+                   gamlss::pb(interview_age) + 
+                   #use subject ID as a random effect
+                   gamlss::random(src_subject_id)+ 
+                   #and random effects for site ID 
+                   gamlss:: random(site_id_l), 
+                  
+                  #let variance vary over age 
+                  sigma.formula = ~pb(interview_age), 
+                  
+                 family = BCT, 
+                 data = thickness_data %>% 
+                   na.omit) 
+
+
+
+
+centiles(model_3, xvar = thickness_data %>%
+           na.omit %>%
+           dplyr::select(interview_age) %>%
+           pull, 
+         bg = 'transparent')    
+
+
+
+```
+
+# model 4
+
+```{r}
+#| label: model-4 
+
+#includes smoothed terms for nu and tau
+
+
+model_4 =  gamlss(smri_thick_cdk_mean ~ 
+           gamlss::pb(interview_age) + 
+           
+           gamlss::random(src_subject_id) + 
+           gamlss:: random(site_id_l), 
+         
+         
+         sigma.formula =~ pb(interview_age), 
+         tau.formula = ~pb(interview_age), 
+         nu.formula = ~pb(interview_age),
+         
+         
+         family = NO, 
+         data = thickness_data %>% 
+           na.omit)
+
+
+model_4_bct =  gamlss(smri_thick_cdk_mean ~ 
+           gamlss::pb(interview_age) + 
+           
+           gamlss::random(src_subject_id) + 
+           gamlss:: random(site_id_l), 
+         
+         
+         sigma.formula =~ pb(interview_age), 
+         tau.formula = ~pb(interview_age), 
+         nu.formula = ~pb(interview_age),
+         
+         
+         family = BCT, 
+         data = thickness_data %>% 
+           na.omit)
+
+fitted_centiles_legend(model_4, 
+                       cent = c(97.5, 50, 2.5), 
+                       xvar = interview_age, 
+                       show.legend = TRUE)
+
+summary(model_4)
+
+
+#AIC: -49370.61, or 44393.03 when using random effects for sex, race
+
+
+
+centiles(model_4, xvar = thickness_data %>%
+           na.omit %>%
+           dplyr::select(interview_age) %>%
+           pull, 
+         bg = 'transparent')
+
+wp(model_4)
+
+```
+
+# model 5
+
+```{r}
+#| label: model-5 
+
+#includes linear terms for sigma and nu 
+
+model_5 =  gamlss(smri_thick_cdk_mean ~ 
+           interview_age + 
+           
+           gamlss::random(src_subject_id) + 
+           gamlss:: random(site_id_l),  
+         
+         
+         sigma.formula =~ interview_age, 
+         nu.formula =~ interview_age,
+         
+         family = NO, 
+         data = thickness_data %>% 
+           na.omit)
+
+
+model_5_bct = gamlss(smri_thick_cdk_mean ~ 
+           interview_age + 
+           
+           gamlss::random(src_subject_id) + 
+           gamlss:: random(site_id_l),  
+         
+         
+         sigma.formula =~ interview_age, 
+         nu.formula =~ interview_age,
+         
+         family = BCT, 
+         data = thickness_data %>% 
+           na.omit)
+summary(model_5)
+
+
+#AIC:-45544.33 
+
+```
+
+# model 6
+
+```{r}
+#| label: model-6 
+
+#smooth over age, using x transformation and BCPEo family 
+
+model_6 = gamlss(smri_thick_cdk_mean ~ 
+                   gamlss:: pb((interview_age)^0.7388256) + 
+                   gamlss:: random(src_subject_id) + 
+                   gamlss:: random(site_id_l), 
+                 
+                 #mu, sigma, nu, tau
+                 mu.formula =~ pb(interview_age), 
+                 sigma.formula =~ pb(interview_age), 
+                 nu.formula =~ pb(interview_age), 
+                 tau.formula =~ pb(interview_age), 
+                 
+                 family = BCPEo, 
+                 data = thickness_data %>% na.omit
+                 
+                 )
+
+summary(model_6)
+
+
+
+wp(model_6)
+
+
+wp(model_6, xvar = interview_age)
+
+```
+
+# model 7
+
+```{r}
+
+model_7 = gamlss(smri_thick_cdk_mean ~ 
+                   gamlss:: pb((interview_age)^0.7388256) + 
+                   gamlss:: random(src_subject_id) + 
+                   gamlss:: random(site_id_l), 
+                 
+                 #mu, sigma, nu, tau
+                 mu.formula =~ pb(interview_age), 
+                 sigma.formula =~ pb(interview_age), 
+                 nu.formula =~ pb(interview_age), 
+                 tau.formula =~ pb(interview_age), 
+                 
+                 family = BCTo, 
+                 data = thickness_data %>% na.omit
+                 
+                 )
+```
+
+# model 8
+
+```{r}
+
+#smooth over interview age raised to power, with linear terms for nu, tau, sigma
+
+model_8 = gamlss(smri_thick_cdk_mean ~ 
+                   gamlss:: pb((interview_age)^0.7388256) + 
+                   gamlss:: random(src_subject_id) + 
+                   gamlss:: random(site_id_l), 
+                 
+                 #mu, sigma, nu, tau
+                 mu.formula =~ pb(interview_age), 
+                 sigma.formula =~ interview_age, 
+                 nu.formula =~ interview_age, 
+                 tau.formula =~ interview_age, 
+                 
+                 family = BCTo, 
+                 data = thickness_data %>% na.omit
+                 
+                 )
+
+```
+
+# make lms work .
+
+```{r}
+
+
+thickness_data <- thickness_data |> 
+  drop_na() |> 
+  mutate(interview_age = as.numeric(interview_age), 
+         thick_mean = as.numeric(smri_thick_cdk_mean))
+
+
+
+lms_model <- lms(smri_thick_cdk_mean, 
+                 interview_age, 
+                 data = thickness_data, 
+                 trans.x = TRUE, 
+                 k = 2)
+
+summary(lms_model)
+
+#save df in variables 
+lms_mu.df <- lms_model$mu.df
+lms_sigma.df <- lms_model$sigma.df
+lms_nu.df <- lms_model$nu.df
+lms_tau.df <- lms_model$tau.df
+lms_mu.nl.df <- lms_model$mu.nl.df
+lms_sigma.nl.df <- lms_model$sigma.nl.df
+lms_tau.nl.df <- lms_model$tau.nl.df
+lms_nu.nl.df <- lms_model$nu.nl.df
+
+
+#save power 
+lms_xpower <- lms_model$power 
+
+  
+wp(lms_model, xvar = interview_age)
+```
+
+# model 9
+
+```{r}
+
+
+thickness_data <- thickness_data |> 
+  mutate(transformed_age = interview_age ^ (lms_xpower))
+
+model_9 = gamlss(smri_thick_cdk_mean ~ 
+                   gamlss:: cs(transformed_age) + 
+                   gamlss:: random(src_subject_id) + 
+                   gamlss:: random(site_id_l), 
+                 
+                 #mu, sigma, nu, tau
+                 mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+                 sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+                 nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+                 tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+                 
+                 family = BCTo(mu.link = "log", 
+                               sigma.link = "log", 
+                               nu.link = "identity", 
+                               tau.link = "log"), 
+                 data = thickness_data %>% na.omit
+                 )
+
+
+```
+
+# model 10
+
+```{r}
+
+
+model_10 <- gamlss(smri_thick_cdk_mean ~ 
+                     gamlss:: ps(transformed_age) + 
+                     gamlss:: random(src_subject_id) + 
+                     gamlss:: random(site_id_l), 
+                   
+                 mu.formula =~ ps(interview_age, df = lms_mu.nl.df), 
+                 sigma.formula =~ ps(interview_age, df = lms_sigma.df),
+                 nu.formula =~ ps(interview_age, df = lms_nu.df),
+                 tau.formula =~ ps(interview_age, df = lms_tau.df),
+                     )
+
+```
+
+# model. comparison.
+
+```{r}
+#| label: model-comparison
+
+
+#model1 
+wp(model_1, xvar = interview_age)
+
+#model1 BCT 
+wp(model_1_bct, xvar = interview_age)
+
+
+#model2 
+wp(model_2, xvar = interview_age)
+
+#model2 BCT 
+wp(model_2_bct, xvar = interview_age)
+
+
+#model3 
+wp(model_3, xvar = interview_age)
+
+#model3 BCT
+wp(model_3, xvar = interview_age)
+
+
+#model4 
+
+wp(model_4, xvar = interview_age)
+
+#model4 BCT 
+wp(model_4_bct, xvar = interview_age)
+
+#model 5 
+wp(model_5, xvar = interview_age)
+
+#model 5 BCT 
+wp(model_5_bct, xvar = interview_age)
+
+#model 6 
+wp(model_6, xvar = interview_age)
+
+
+#model 7 
+wp(model_7, xvar = interview_age)
+
+
+#model 8 
+wp(model_8, xvar = interview_age)
+
+
+#model 9 
+wp(model_9, xvar = interview_age)
+
+#lms model 
+wp(lms_model, xvar = interview_age)
+
+
+centiles.fan(model_5_bct, thickness_data$interview_age, 
+             xlim = range(thickness_data$interview_age),
+             cent = c(0.4, 2, 10, 25, 50, 75, 90, 98, 99.6),
+             median = TRUE,
+             plot = TRUE, 
+             ylab = "average CT", 
+             xlab = "age (months)")
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+# make pretty brain pictures.
+
+```{r}
+plot(dk)
+data(dk)
+
+
+#add column for hemisphere 
+brain_pictures <- comb |> 
+  pivot_longer(cols = (smri_thick_cdk_banksstslh:smri_thick_cdk_trvtmrh), 
+                names_to = "phenotype") |> 
+  
+  #add hemisphere classification 
+  mutate(hemisphere = case_when( 
+                                 grepl("lh", phenotype) ~ "left", 
+                                 grepl("rh", phenotype) ~ "right", 
+                                 .default = NA), 
+       
+          #use forcats to collapse regions 
+         region = factor(phenotype), 
+         region = fct_collapse(phenotype, 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                       "smri_thick_cdk_periccrh"), 
+                               "caudal anterior cingulate" = c("smri_thick_cdk_cdacatelh", 
+                                                               "smri_thick_cdk_cdacaterh"), 
+                               "caudal middle frontal" = c("smri_thick_cdk_cdmdfrlh", 
+                                                           "smri_thick_cdk_cdmdfrrh"), 
+                               "cuneus" = c("smri_thick_cdk_cuneuslh", 
+                                            "smri_thick_cdk_cuneusrh"), 
+                               "entorhinal" = c("smri_thick_cdk_ehinallh", 
+                                                "smri_thick_cdk_ehinalrh"), 
+                               "fusiform" = c("smri_thick_cdk_fusiformlh", 
+                                              "smri_thick_cdk_fusiformrh"), 
+                               "inferior parietal" = c("smri_thick_cdk_ifpllh", 
+                                                       "smri_thick_cdk_ifplrh"),
+                               "isthmus cingulate" = c("smri_thick_cdk_ihcatelh", 
+                                                       "smri_thick_cdk_ihcaterh"), 
+                               "lateral occipital" = c("smri_thick_cdk_locclh", 
+                                                       "smri_thick_cdk_loccrh"), 
+                               "lateral orbitofrontal" = c("smri_thick_cdk_lobfrlh", 
+                                                           "smri_thick_cdk_lobfrrh"), 
+                               "lingual" = c("smri_thick_cdk_linguallh", 
+                                             "smri_thick_cdk_lingualrh"), 
+                               "medial orbitofrontal" = c("smri_thick_cdk_mobfrlh", 
+                                                          "smri_thick_cdk_mobfrrh"), 
+                               "middle temporal" = c("smri_thick_cdk_mdtmlh", 
+                                                     "smri_thick_cdk_mdtmrh"), 
+                               "parahippocampal" = c("smri_thick_cdk_parahpallh", 
+                                                     "smri_thick_cdk_parahpalrh"), 
+                               "paracentral" = c("smri_thick_cdk_paracnlh", 
+                                                 "smri_thick_cdk_paracnrh"), 
+                               "pars opercularis" = c("smri_thick_cdk_parsopclh", 
+                                                      "smri_thick_cdk_parsopcrh"), 
+                               "pars orbitalis" = c("smri_thick_cdk_parsobislh", 
+                                                    "smri_thick_cdk_parsobisrh"), 
+                               "pars triangularis" = c("smri_thick_cdk_parstgrislh", 
+                                                       "smri_thick_cdk_parstgrisrh"), 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                   "smri_thick_cdk_periccrh"), 
+                               "postcentral" = c("smri_thick_cdk_postcnlh",
+                                                 "smri_thick_cdk_postcnrh"), 
+                               "posterior cingulate" = c("smri_thick_cdk_ptcatelh", 
+                                                         "smri_thick_cdk_ptcaterh"), 
+                               "precentral" = c("smri_thick_cdk_precnlh", 
+                                                "smri_thick_cdk_precnrh"), 
+                               "precuneus" = c("smri_thick_cdk_pclh", 
+                                               "smri_thick_cdk_pcrh"), 
+                               "rostral anterior cingulate" = c("smri_thick_cdk_rracatelh", 
+                                                                "smri_thick_cdk_rracaterh"), 
+                               "rostral middle frontal" = c("smri_thick_cdk_rrmdfrlh", 
+                                                            "smri_thick_cdk_rrmdfrrh"), 
+                               "superior frontal" = c("smri_thick_cdk_sufrlh", 
+                                                      "smri_thick_cdk_sufrrh"), 
+                               "superior parietal" = c("smri_thick_cdk_supllh", 
+                                                       "smri_thick_cdk_suplrh"), 
+                               "superior temporal" = c("smri_thick_cdk_sutmlh", 
+                                                       "smri_thick_cdk_sutmrh"), 
+                               "supramarginal" = c("smri_thick_cdk_smlh", 
+                                                   "smri_thick_cdk_smrh"), 
+                               "frontal pole" = c("smri_thick_cdk_frpolelh", 
+                                                  "smri_thick_cdk_frpolerh"), 
+                               "temporal pole" = c("smri_thick_cdk_tmpolelh", 
+                                                   "smri_thick_cdk_tmpolerh"), 
+                               "transverse temporal" = c("smri_thick_cdk_trvtmlh", 
+                                                         "smri_thick_cdk_trvtmrh"), 
+                               "insula" = c("smri_thick_cdk_insulalh", 
+                                            "smri_thick_cdk_insularh"), 
+                               "inferior temporal" = c("smri_thick_cdk_iftmlh", 
+                                                       "smri_thick_cdk_iftmrh"),
+                               
+                               other_level = 'missing'
+                                                       ))
+         
+
+
+brain_pictures <- brain_pictures |> 
+  select(phenotype, value, hemisphere, region) 
+
+#what isn't included yet 
+
+brain_pictures |> 
+  group_by(phenotype) |>
+  filter(region == 'insula') |> 
+  count()
+
+
+
+table(brain_pictures$region)
+
+
+#doublecheck 
+brain_pictures |> 
+  group_by(phenotype, hemisphere) |> 
+  count()
+
+
+#plot 
+brain_pictures |> 
+  group_by(hemisphere, region) |> 
+  #find variances of each brain region 
+  summarize(hemi_var = var(value, na.rm = TRUE), 
+            region_var = var(value, na.rm = TRUE)) |> 
+  ggplot() + 
+  
+  #plot, with color corresponding to the variance within each region  
+  geom_brain(atlas = dk, 
+             position = position_brain(hemi ~ side), 
+             aes(fill = region_var)) + 
+  theme_void()
+  
+             
+             
+
+plot_dk()
+             
+             
+
+```
+
+# prove mark wrong \[centile prediction\]
+
+```{r}
+
+#need to calculate the centile for each observation 
+
+library(caret)
+
+
+#set training and testing data sets 
+
+
+thickness_data |> 
+  group_by(race_ethnicity) |> 
+  ggplot(aes(x = smri_thick_cdk_mean, color = race_ethnicity)) + 
+  geom_density()
+
+trainIndex <- createDataPartition(prediction_data$smri_thick_cdk_mean, 
+                                  p = 0.7, list = FALSE)
+training <- prediction_data[trainIndex, ]
+testing <- prediction_data[-trainIndex, ]
+
+
+
+#make model using the training dataset 
+predict_model_a <- gamlss(smri_thick_cdk_mean ~ 
+                   gamlss:: ps(interview_age) + 
+                  gamlss:: random(src_subject_id) + 
+                  gamlss:: random(site_id_l), 
+                 
+                 #mu, sigma, nu, tau
+                 mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+                 sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+                 nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+                 tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+                 
+                 family = BCTo(mu.link = "log", 
+                               sigma.link = "log", 
+                               nu.link = "identity", 
+                               tau.link = "log"), 
+                 data = white_data)
+                 
+
+predict_model_b <- gamlss(smri_thick_cdk_mean ~ 
+                   gamlss:: ps(interview_age) + 
+                  gamlss:: random(src_subject_id) + 
+                  gamlss:: random(site_id_l), 
+                 
+                 #mu, sigma, nu, tau
+                 mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+                 sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+                 nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+                 tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+                 
+                 family = BCTo(mu.link = "log", 
+                               sigma.link = "log", 
+                               nu.link = "identity", 
+                               tau.link = "log"), 
+                 data = asian_data)
+
+summary(predict_model_b)
+
+
+centiles_to_predict <- c(1:99)
+
+ages <- sort(unique(training$interview_age))
+
+cent_predictions_matrix <- centiles.pred(
+  predict_model, 
+  cent = centiles_to_predict,
+  xname = "interview_age", 
+  xvalues = ages, 
+  plot = FALSE) 
+
+
+#function that you input an age and a measured centile into, 
+#outputs estimated percentile 
+
+find_my_centile <- function(cent_predictions, centile_input, age){ 
+  
+#make df that is just the percentile and the predicted mean CT, 
+  age_pred <- cent_predictions |> 
+    filter(x == age) |> 
+    pivot_longer(cols = 1:ncol(cent_predictions), 
+               names_to = "percentile", 
+               values_to = "mean_CT") |> 
+  filter(!row_number() == 1)
+  
+  
+  #find the index of the CT value closest to your input, rounding down
+  centile_index <- which(abs(age_pred$mean_CT - centile_input) 
+                          == min(abs(age_pred$mean_CT - centile_input)))
+
+  
+  #the index of the CT value is also the integer percentile 
+  return(centile_index)
+  
+  }
+
+
+
+
+#sample 200 participants and plot their centiles over time 
+
+set.seed(511)
+
+sample_ids <- thickness_data1 |>
+  dplyr::select(src_subject_id, interview_age, smri_thick_cdk_mean) |>
+  dplyr::select(src_subject_id) |>
+  distinct() |>
+  sample_n(200)
+
+#df with data from 500 sampled participants 
+thickness_sample <- thickness_data1 |>
+  filter(src_subject_id %in% sample_ids$src_subject_id & !is.na(smri_thick_cdk_mean))
+
+thickness_data1 <- thickness_data |> 
+  filter(!is.na(smri_thick_cdk_mean)) |> 
+  filter(!is.na(interview_age)) |> 
+  filter(interview_age >= 107 & interview_age <=187)
+
+
+
+#add column with the centiles at each observation 
+
+  for(i in 1:nrow(thickness_data1)){ 
+    
+    age <- thickness_data1$interview_age[i] 
+    thick <- thickness_data1$smri_thick_cdk_mean[i]
+    #thickness_data1$centile[i] = find_my_centile(cent_predictions_matrix, 
+    #                                           thick, age)
+    
+    }
+
+
+# centiles grouped by race 
+
+ggplot(aes(x = centile, color = race_ethnicity ), 
+       data = thickness_data1) + 
+  geom_density()
+
+ggplot(aes(x = interview_age, y = centile, color = race_ethnicity), 
+       data = thickness_data1) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(method = 'gam')
+
+ggplot(aes(x = interview_age, y = centile, color = race_ethnicity), 
+       data = thickness_data1) + 
+  geom_boxplot()
+
+
+#centiles grouped by combined income at baseline
+
+
+ggplot(aes(x = centile, color = combined_income), 
+       data = thickness_data1) + 
+  geom_density()
+
+
+
+# centiles grouped by sex 
+
+ggplot(aes(x = interview_age, y = centile, color = sex), 
+       data = thickness_data1) + 
+  geom_point(alpha = 0.3) + 
+  geom_smooth()
+  
+
+#line plots grouped by individual, colored by race 
+ggplot(aes(x = interview_age, y = centile, 
+           group = src_subject_id, 
+           color = race_ethnicity), 
+       data = thickness_sample) + 
+  geom_line()
+
+
+
+#okay now predict centiles in the future...?!?! 
+
+
+
+
+
+
+centiles.com(predict_model_a, predict_model_b, 
+             xvar = interview_age, 
+             legend = FALSE)
+
+
+predict_centiles(testing, model_6)
+
+
+
+
+```
+
+# centile prediction cleanup code.
+
+```{r}
+
+
+#function that returns dataframe of centile values 
+
+cent_df <- function(orig_df, model){ 
+  
+  #want centiles from 1st to 99th 
+  centiles_to_predict <- c(1:99) 
+  
+  #find vector of unique ages in the original dataframe 
+  ages <- sort(unique(orig_df$interview_age)) 
+  
+  #make dataframe with predicted centile values for all ages in the df 
+  centiles_df <- centiles.pred(
+    model, 
+    cent = centiles_to_predict,
+    xname = "interview_age", 
+    xvalues = ages, 
+    plot = FALSE
+  )
+  
+  return(centiles_df)
+  
+  }
+
+
+#function that gives the centile based on dataframe of centile values 
+find_my_centile <- function(cent_predictions, centile_input, age){ 
+  
+  
+  #select the values appropriate for age  
+  age_predictions <- cent_predictions[cent_predictions$x == age, ]
+  mean_cts <- as.vector(age_predictions$value[2:nrow(age_pred)])
+  
+  #find index (percentile) of CT value closest to input
+  centile_index <- which(abs(mean_cts - centile_input) == 
+                           min(abs((mean_cts - centile_input))))
+  
+  
+#make df that is just the percentile and the predicted mean CT, 
+  #age_pred <- cent_predictions |> 
+   # filter(x == age) |> 
+   # pivot_longer(cols = 1:ncol(cent_predictions), 
+    #           names_to = "percentile", 
+     #          values_to = "mean_CT") |> 
+  #filter(!row_number() == 1)
+  
+  
+  #find the index of the CT value closest to your input, rounding down
+  #centile_index <- which(abs(age_pred$mean_CT - centile_input) 
+                        #  == min(abs(age_pred$mean_CT - centile_input)))
+
+  
+  #the index of the CT value is also the integer percentile 
+  return(centile_index)
+  
+  }
+
+
+
+
+#function that takes dataframe, model, and then adds centile estimates 
+#into a df column that is named after the model 
+
+
+add_model_centiles <- function(orig_df, model){ 
+  
+  #make dataframe for centiles 
+  centile_df <- cent_df(orig_df, model) 
+  
+  col_name <- paste(as.character(substitute(model)), "centile_estimate", sep = "_")
+  
+  new_centiles <- c() 
+  
+
+  
+  for(i in 1:nrow(orig_df)){
+    age <- orig_df$interview_age[i] 
+    thick <- orig_df$smri_thick_cdk_meaen[i]
+    new_centiles[i] <- find_my_centile(centile_df, thick, age)
+  }
+  
+
+    
+  print(new_centiles)
+  
+ # print(col_name)
+  assign(col_name, model) 
+  model_i <- ncol(orig_df) + 1
+  
+ # orig_df |> 
+ #   mutate(new_centiles = find_my_centile(centile_df, 
+  #                                        smri_thick_cdk_mean, 
+   #                                       interview_age))
+  
+  
+  
+  
+  #colnames(orig_df)[model_i] = as.character(substitute(col_name))
+  
+ # for(i in 1:nrow(orig_df)) { 
+  #  
+   # age <- orig_df$interview_age[i] 
+  #  thickness <- orig_df$smri_thick_cdk_mean[i] 
+   # orig_df$as.character(substitute(col_name)) <- find_my_centile(centile_df, 
+    #                                      thickness, age)
+  
+  #return(orig_df)
+    
+  }
+  
+  
+  
+  
+
+thickness_data3[thickness_data3$interview_age == 113, ]
+  
+  
+  #return(orig_df)
+  
+  
+thickness_sample <- add_model_centiles(thickness_sample, lms_nw_model)
+
+
+test <- paste("model", "test", sep = "_") 
+iris$`test` = 4
+
+
+
+
+mean_cts <- age_pred$value[2:nrow(age_pred)]
+
+ which(abs(mean_cts - 2.734) == min(abs(mean_cts - 2.734)))
+ 
+ 
+
+```
+
+# model comparison
+
+```{r}
+
+#probably not enough people with data for all 3 time points to make generalizations about actual future predictions,,? but we can look at how models based on white people predict centiles 
+
+
+
+#training df that only has white people in it  
+
+training_data <- thickness_data |> 
+  filter(race_ethnicity == "White") 
+
+#testing df with everyone else 
+
+testing_data <- thickness_data |> 
+  filter(race_ethnicity != "White")
+
+
+#train a model on white people 
+
+lms_white_model <- lms(smri_thick_cdk_mean, interview_age, 
+                       data = training_data, 
+                       trans.x = TRUE)
+
+
+#& model without white people 
+lms_nw_model <- lms(smri_thick_cdk_mean, interview_age, 
+                    data = testing_data, 
+                    trans.x = TRUE)
+
+
+thickness_data3 <- add_model_centiles(thickness_data1, lms_white_model)
+thickness_data3 <- add_model_centiles(thickness_data3, lms_nw_model)
+
+
+
+
+```

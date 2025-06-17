@@ -1,0 +1,218 @@
+---
+title: "gamlss"
+author: Jeffrey Choi
+output: html_document
+---
+
+# Replicating gamlss distribution exploration in gamlss.qmd by Shelby Tisdale
+
+```{r}
+library(tidyverse)
+library(gamlss)
+library(bamlss)
+library(gamlss.ggplots)
+library(plotly)
+```
+
+```{r}
+#| warning: false
+
+data_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/'
+
+# NOTE: must run entire code chunk
+if(!is.null(data_dir)){
+  setwd(data_dir) # set core as working directory
+}
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c("999", "777"))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+# desikan atlas, average cortical thickness in mm for whole brain
+dat.mri.ct = read.csv('imaging/mri_y_smr_thk_dsk.csv') %>%
+  select(src_subject_id, eventname, smri_thick_cdk_mean)
+# desikan atlas, total cortical surface area in mm^2 for whole brain
+dat.mri.area = read.csv('imaging/mri_y_smr_area_dsk.csv') %>%
+  select(src_subject_id, eventname, smri_area_cdk_total)
+
+#| label: clean-demog
+
+# basic cleaning for demographic variables
+demog_clean <- demog |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  # fill in race and sex first (avoid losing demog info due to filtering eventname)
+  group_by(src_subject_id) %>%
+  mutate(
+    race_ethnicity = first(na.omit(race_ethnicity)),
+    demo_sex_v2 = first(na.omit(demo_sex_v2))
+  ) %>%
+  ungroup() %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    )) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1"))
+
+demog_filled <- demog %>%
+  group_by(src_subject_id) %>%
+  summarize(
+    sex = first(na.omit(demo_sex_v2)),
+    race_ethnicity = first(na.omit(race_ethnicity))
+  ) %>%
+  mutate(
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(sex),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    ))
+
+# full dataset
+
+# MAJOR NOTE: Some individuals do not have baseline measures (results in some NA in sex)
+# Dropped NA for now but need new method of joining full dataset or imputing baseline measures
+thickness <- dat.mri.ct |>
+  full_join(dat.mri.area, by = join_by("eventname", "src_subject_id")) |>
+  # join mri data to demographics
+  right_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>
+  # join to study covariates
+  left_join(study_covars, by = join_by("eventname", "src_subject_id")) |>
+  # fill in empty race for MRI measure (lookup table)
+  left_join(demog_filled, by = "src_subject_id") |>
+  # select variables of interest
+  select(src_subject_id, eventname, smri_thick_cdk_mean, smri_area_cdk_total, age, sex = sex.y, race_ethnicity =  race_ethnicity.y, site_id_l, interview_age) |>
+  # remove ages less than 8 and more than 16
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age)) |>
+  rename(thick = smri_thick_cdk_mean,
+         area = smri_area_cdk_total) |>
+  drop_na(thick, area) |>
+  group_by(src_subject_id) |>
+  # fill repeated demographic values
+  mutate(sex = first(na.omit(sex)),
+         race_ethnicity = first(na.omit(race_ethnicity)),
+         # change in cortical thickness / surface area
+         change_thick = thick - thick[1],
+         change_area = area - area[1],
+         src_subject_id = factor(src_subject_id),
+         site_id_l = factor(site_id_l),
+         race_ethnicity = factor(race_ethnicity)) |>
+  ungroup()
+
+# removed single NA race and intersex individuals (3)
+thickness <- thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  filter(!is.na(race_ethnicity))
+```
+
+```{r}
+thickness %>%
+  filter(if_any(everything(), is.na)) %>%
+  select(src_subject_id)
+
+```
+
+
+```{r}
+# WHAT DOES THIS DO 
+lms_model <- lms(thick, 
+                 interview_age, 
+                 data = thickness, 
+                 trans.x = TRUE, 
+                 k = 2)
+
+# grabs degrees of freedom
+lms_mu.nl.df <- lms_model$mu.nl.df
+lms_sigma.nl.df <- lms_model$sigma.nl.df
+lms_tau.nl.df <- lms_model$tau.nl.df
+lms_nu.nl.df <- lms_model$nu.nl.df
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model1 <- gamlss(
+  thick ~ pb(interview_age) + gamlss::random(src_subject_id) + gamlss::random(site_id_l), # random subject and site effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness)
+```
+
+```{r}
+summary(thickness_model1)
+
+fitted_centiles_legend(
+  thickness_model1,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+```
+
+```{r}
+#| warning: false
+round(Q.stats(
+  thickness_model1,
+  xvar = thickness$interview_age), 3)
+
+wp(thickness_model1, xvar = thickness$interview_age)
+```
+
+
+Generalized Akaike Information Criterion:
+$$
+\text{GAIC} = -2 \log L + k \cdot \text{df}
+$$
+```{r}
+GAIC(thickness_model1)
+```
+Bayesian Information Criterion:
+$$
+\text{BIC} = -2 \log L + \log(n) \cdot \text{df}
+$$
+```{r}
+GAIC(thickness_model1, k = log(nrow(thickness)))
+```
+

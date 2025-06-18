@@ -36,7 +36,7 @@ dk_abv_to_names <- left_join(abcd_abv, dk$data, by ="label") %>%
          region = if_else(var_name == "meanrh", label, region),
          region = str_remove(region, "in mm "))
 
-write.csv(dk_abv_to_names, file = "~/Documents/GitHub/Normative_brain_development_and_deviations_for_adolescents/exploration/additional_files/dk_abv_to_names.csv") 
+# write.csv(dk_abv_to_names, file = "~/Documents/GitHub/Normative_brain_development_and_deviations_for_adolescents/exploration/additional_files/dk_abv_to_names.csv") 
 
 # ============== get name from abv and vice verse ============
 

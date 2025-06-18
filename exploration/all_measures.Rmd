@@ -4,3 +4,115 @@ author: Jeffrey Choi
 output: html_document
 ---
 
+```{r}
+#| warning: false
+
+# lets work with corical thickness first
+data_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/'
+
+setwd(data_dir)
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c(999, 777))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+# desikan atlas, cortical thickness
+dat.mri.ct = read.csv('imaging/mri_y_smr_thk_dsk.csv')
+
+# basic cleaning for demographic variables
+demog_clean <- demog |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  # fill in race and sex first (avoid losing demog info due to filtering eventname)
+  group_by(src_subject_id) %>%
+  mutate(
+    race_ethnicity = first(na.omit(race_ethnicity)),
+    demo_sex_v2 = first(na.omit(demo_sex_v2))
+  ) %>%
+  ungroup() %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    )) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1"))
+
+
+thickness <- dat.mri.ct |>
+  # join mri data to demographics
+  left_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>
+  # join to study covariates
+  left_join(study_covars, by = join_by("eventname", "src_subject_id")) |>
+  select(src_subject_id, eventname, starts_with("smri"), age, sex, race_ethnicity 
+         , site_id_l, interview_age) |>
+  # remove ages less than 8 and more than 16
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age))
+
+# removed single NA race and intersex individuals (3)
+thickness <- thickness %>%
+  filter(sex != "Intersex-Male") %>%
+  filter(!is.na(race_ethnicity)) %>%
+  #rename mri columns (removes smri_thick_cdk)
+  rename_with(
+    .fn = ~ sub("^smri_thick_cdk_", "", .x),
+    .cols = starts_with("smri_thick_cdk_")
+  )
+```
+
+```{r}
+# This returns the real brain region name from abcd abbreviation
+
+dk_abv_to_names = read.csv("~/Documents/GitHub/Normative_brain_development_and_deviations_for_adolescents/exploration/additional_files/dk_abv_to_names.csv")
+# returns region name from abcd abv
+get_name <- function(dk_abv_to_names, abv){
+  (dk_abv_to_names %>% filter(var_name == abv))$region
+}
+
+get_name(dk_abv_to_names, abv = "cdacatelh")
+```
+
+```{r}
+# compute overall average for each brain region measurement
+
+
+```
+
+```{r}
+
+some_data_2 <- data.frame(region = c("insula", "precentral", "superior parietal"),
+                          p = c("insula", "precentral", "superior parietal"))
+
+ggseg(.data = some_data_2, 
+      atlas=dk, 
+      colour="white", 
+      linewidth = 0.25, 
+      mapping=aes(fill = factor(p))) + # p indicates what region I want to highlight
+  theme(legend.position = "bottom") +
+  labs(fill = "Region")
+
+```
+
+

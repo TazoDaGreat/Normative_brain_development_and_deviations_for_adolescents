@@ -178,6 +178,12 @@ thickness_model1 <- gamlss(
                tau.link = "identity"), 
   data = thickness)
 ```
+```{r}
+lms_mu.nl.df
+lms_sigma.nl.df
+lms_tau.nl.df
+lms_nu.nl.df 
+```
 
 ```{r}
 summary(thickness_model1)

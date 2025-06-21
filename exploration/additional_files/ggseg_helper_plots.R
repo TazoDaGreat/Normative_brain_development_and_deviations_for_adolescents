@@ -4,12 +4,14 @@ library(tidyverse)
 # ====================== highlight brain region on map ==================
 make_plot <- function(region){
   some_data_2 <- data.frame(region = region,
-                            p = region)
+                            p = region
+                            )
   
   ggseg(.data = some_data_2, 
         atlas=dk, 
         colour="white", 
         linewidth = 0.25, 
+        position = position_brain(hemi ~ side),
         mapping=aes(fill= factor(p))) + # p indicates what region I want to highlight
     theme(legend.position = "bottom") +
     labs(fill = "Region")

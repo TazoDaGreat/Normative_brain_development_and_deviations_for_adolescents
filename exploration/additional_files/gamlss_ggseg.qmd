@@ -1,0 +1,1546 @@
+---
+title: "gamlss_ggseg"
+format: html
+editor: visual
+---
+
+# loading packages + data
+
+```{r}
+
+#| label: load-packages 
+#| echo: FALSE
+#| warning: FALSE
+
+library(tidyverse)
+library(gamlss)
+library(ggseg)
+library(grid)
+library(gridExtra)
+library(gamlss.ggplots)
+library(plotly)
+library(grid)
+library(patchwork)
+
+```
+
+```{r}
+#| label: read-in-data 
+
+
+data_dir <- "/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core"
+
+setwd(data_dir)
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c(999, 777))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+
+
+
+
+# desikan atlas, cortical thickness
+dat.mri = read.csv('imaging/mri_y_smr_thk_dsk.csv')
+# desikan atlas, cortical surface area
+dat.mri.area = read.csv('imaging/mri_y_smr_area_dst.csv')
+
+
+demog_clean <- demog |>
+  # filter for events of interest
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    # will disaggregate in final analysis
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Male" = "1",
+      "Female" = "2",
+      "Intersex-Male" = "3"
+    ))
+
+
+
+
+#make full dataset for modeling 
+comb <- dat.mri |> 
+  full_join(dat.mri.area, by = join_by("eventname", "src_subject_id")) |> 
+  right_join(demog_clean, by = join_by("eventname", 'src_subject_id')) |> 
+  left_join(study_covars, by = join_by("eventname", 'src_subject_id')) |>
+  group_by(src_subject_id) |>
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age)) |> 
+  mutate(sex = first(na.omit(sex)),
+         race_ethnicity = first(na.omit(race_ethnicity)), 
+         src_subject_id = factor(src_subject_id),
+         site_id_l = factor(site_id_l),
+         race_ethnicity = factor(race_ethnicity)) |> 
+  ungroup()
+
+
+#make dataset to test on 
+comb_test <- comb |> 
+  select(interview_age, smri_thick_cdk_cuneuslh, smri_thick_cdk_linguallh, src_subject_id, 
+         race_ethnicity, site_id_l) |> 
+  na.omit()
+  
+  
+brain_pictures <- comb |> 
+  pivot_longer(cols = (smri_thick_cdk_banksstslh:smri_thick_cdk_trvtmrh), 
+                names_to = "phenotype") |> 
+  
+  #add hemisphere classification 
+  mutate(hemisphere = case_when( 
+                                 grepl("lh", phenotype) ~ "left", 
+                                 grepl("rh", phenotype) ~ "right", 
+                                 .default = NA), 
+       
+          #use forcats to collapse regions 
+         region = factor(phenotype), 
+         region = fct_collapse(phenotype, 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                       "smri_thick_cdk_periccrh"), 
+                               "caudal anterior cingulate" = c("smri_thick_cdk_cdacatelh", 
+                                                               "smri_thick_cdk_cdacaterh"), 
+                               "caudal middle frontal" = c("smri_thick_cdk_cdmdfrlh", 
+                                                           "smri_thick_cdk_cdmdfrrh"), 
+                               "cuneus" = c("smri_thick_cdk_cuneuslh", 
+                                            "smri_thick_cdk_cuneusrh"), 
+                               "entorhinal" = c("smri_thick_cdk_ehinallh", 
+                                                "smri_thick_cdk_ehinalrh"), 
+                               "fusiform" = c("smri_thick_cdk_fusiformlh", 
+                                              "smri_thick_cdk_fusiformrh"), 
+                               "inferior parietal" = c("smri_thick_cdk_ifpllh", 
+                                                       "smri_thick_cdk_ifplrh"),
+                               "isthmus cingulate" = c("smri_thick_cdk_ihcatelh", 
+                                                       "smri_thick_cdk_ihcaterh"), 
+                               "lateral occipital" = c("smri_thick_cdk_locclh", 
+                                                       "smri_thick_cdk_loccrh"), 
+                               "lateral orbitofrontal" = c("smri_thick_cdk_lobfrlh", 
+                                                           "smri_thick_cdk_lobfrrh"), 
+                               "lingual" = c("smri_thick_cdk_linguallh", 
+                                             "smri_thick_cdk_lingualrh"), 
+                               "medial orbitofrontal" = c("smri_thick_cdk_mobfrlh", 
+                                                          "smri_thick_cdk_mobfrrh"), 
+                               "middle temporal" = c("smri_thick_cdk_mdtmlh", 
+                                                     "smri_thick_cdk_mdtmrh"), 
+                               "parahippocampal" = c("smri_thick_cdk_parahpallh", 
+                                                     "smri_thick_cdk_parahpalrh"), 
+                               "paracentral" = c("smri_thick_cdk_paracnlh", 
+                                                 "smri_thick_cdk_paracnrh"), 
+                               "pars opercularis" = c("smri_thick_cdk_parsopclh", 
+                                                      "smri_thick_cdk_parsopcrh"), 
+                               "pars orbitalis" = c("smri_thick_cdk_parsobislh", 
+                                                    "smri_thick_cdk_parsobisrh"), 
+                               "pars triangularis" = c("smri_thick_cdk_parstgrislh", 
+                                                       "smri_thick_cdk_parstgrisrh"), 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                   "smri_thick_cdk_periccrh"), 
+                               "postcentral" = c("smri_thick_cdk_postcnlh",
+                                                 "smri_thick_cdk_postcnrh"), 
+                               "posterior cingulate" = c("smri_thick_cdk_ptcatelh", 
+                                                         "smri_thick_cdk_ptcaterh"), 
+                               "precentral" = c("smri_thick_cdk_precnlh", 
+                                                "smri_thick_cdk_precnrh"), 
+                               "precuneus" = c("smri_thick_cdk_pclh", 
+                                               "smri_thick_cdk_pcrh"), 
+                               "rostral anterior cingulate" = c("smri_thick_cdk_rracatelh", 
+                                                                "smri_thick_cdk_rracaterh"), 
+                               "rostral middle frontal" = c("smri_thick_cdk_rrmdfrlh", 
+                                                            "smri_thick_cdk_rrmdfrrh"), 
+                               "superior frontal" = c("smri_thick_cdk_sufrlh", 
+                                                      "smri_thick_cdk_sufrrh"), 
+                               "superior parietal" = c("smri_thick_cdk_supllh", 
+                                                       "smri_thick_cdk_suplrh"), 
+                               "superior temporal" = c("smri_thick_cdk_sutmlh", 
+                                                       "smri_thick_cdk_sutmrh"), 
+                               "supramarginal" = c("smri_thick_cdk_smlh", 
+                                                   "smri_thick_cdk_smrh"), 
+                               "frontal pole" = c("smri_thick_cdk_frpolelh", 
+                                                  "smri_thick_cdk_frpolerh"), 
+                               "temporal pole" = c("smri_thick_cdk_tmpolelh", 
+                                                   "smri_thick_cdk_tmpolerh"), 
+                               "transverse temporal" = c("smri_thick_cdk_trvtmlh", 
+                                                         "smri_thick_cdk_trvtmrh"), 
+                               "insula" = c("smri_thick_cdk_insulalh", 
+                                            "smri_thick_cdk_insularh"), 
+                               "inferior temporal" = c("smri_thick_cdk_iftmlh", 
+                                                       "smri_thick_cdk_iftmrh"),
+                               "bankssts" = c("smri_thick_cdk_banksstslh", 
+                                              "smri_thick_cdk_banksstsrh"),
+                               
+                               other_level = 'missing'
+                                                       ))
+
+```
+
+# gamlss & ggseg feet wet moment
+
+```{r}
+
+#select the regions of the brain you want to model 
+brain_regions <- c("cuneus", "lingual")
+
+
+#make gamlss outputs for those regions 
+
+#lms models
+cuneus_lms_model <- lms(smri_thick_cdk_cuneuslh, interview_age, families = c("BCTo"), 
+                        data = na.omit(comb_test), trans.x = TRUE)
+
+lingual_lms_model <-lms(smri_thick_cdk_linguallh, interview_age, families = c("BCTo"), 
+                        data = na.omit(comb_test), trans.x = TRUE)
+
+
+
+#gamlss models 
+cuneus_model <- gamlss(
+  smri_thick_cdk_cuneuslh ~ pb(interview_age^cuneus_lms_model$power,
+                               df = cuneus_lms_model$mu.df) + 
+    gamlss::random(src_subject_id) + gamlss::random(site_id_l), 
+  sigma.formula = ~pb(interview_age, df = cuneus_lms_model$sigma.df), 
+  tau.formula = ~interview_age, 
+  nu.formula = ~interview_age, 
+  family = BCTo, 
+  data = na.omit(comb_test))
+
+lingual_model <- gamlss( 
+  smri_thick_cdk_linguallh ~ pb(interview_age^lingual_lms_model$power, 
+                                df = lingual_lms_model$mu.df) + 
+    gamlss::random(src_subject_id) + gamlss::random(site_id_l), 
+  sigma.formula = ~pb(interview_age, df = lingual_lms_model$sigma.df), 
+  tau.formula = ~interview_age, 
+  nu.formula =~interview_age, 
+  family = BCTo, 
+  data = na.omit(comb_test))
+
+
+
+#shelby code <3 
+
+obj <- area_model_10
+xvar <- na.omit(thickness)$interview_age
+cent <- c(97.5, 50, 2.5)
+points <- TRUE
+point.col <- "gray"
+point.size <- 1
+line.size <- .8
+line.col <- hcl.colors(length(cent), palette = "Dark2")
+line.type <- rep(1, length(cent))
+show.legend <- TRUE
+save.data <- FALSE
+xlab <- NULL
+ylab <- NULL
+
+
+# calculate centiles
+
+cent <- c(97.5, 50, 2.5)
+
+xvar_name <- deparse(substitute(xvar))
+# get data from model object
+model_data <- eval(cuneus_model$call[["data"]])
+
+
+# initialize x and y
+x <- y <- NULL
+# get xvar data
+xvar <- try(xvar, silent = TRUE)
+
+
+xvar_cuneus <- comb_test$interview_age 
+oxvar_cuneus <- xvar_cuneus[order(xvar_cuneus)] 
+oyvar_lingual <- lingual_model$y[order(xvar_cuneus)] 
+oyvar_cuneus <- cuneus_model$y[order(xvar_cuneus)]
+
+
+# family name
+fname <- "BCTo"
+# q function
+qfun <- paste("q", fname, sep = "")
+
+centile_matrix_cuneus <- matrix(0, ncol = length(cent), nrow = dim(comb_test)[1])
+centile_matrix_lingual <- matrix(0, ncol = length(cent), nrow = dim(comb_test)[1])
+
+
+
+# set color
+col <- 3
+# set length of parameters
+param_length <- length(cuneus_model$parameters)
+per <- rep(0, length(cent))
+
+
+ii <- 0
+# calculate centiles (cuneus)
+
+for(var in cent) {
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(cuneus_model,"mu")[order(xvar_cuneus)],
+    sigma = fitted(cuneus_model,"sigma")[order(xvar_cuneus)],
+    nu = fitted(cuneus_model,"nu")[order(xvar_cuneus)],
+    tau = fitted(cuneus_model,"tau")[order(xvar_cuneus)]) 
+  ii <- ii + 1
+    centile_matrix_cuneus[ ,ii] <- eval(newcall)
+}
+
+
+#calculate centiles (lingual) 
+
+
+ii <- 0 
+
+for(var in cent) {
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(lingual_model,"mu")[order(xvar_cuneus)],
+    sigma = fitted(lingual_model,"sigma")[order(xvar_cuneus)],
+    nu = fitted(lingual_model,"nu")[order(xvar_cuneus)],
+    tau = fitted(lingual_model,"tau")[order(xvar_cuneus)]) 
+  ii <- ii + 1
+    centile_matrix_lingual[ ,ii] <- eval(newcall)
+}
+
+
+# get y variable name
+yvar_name <- paste(obj$call$formula[[2]])
+centile_length <- length(cent)
+
+centile_data_male <- data.frame(c = centile_matrix_male, x = oxvar_male, y = oxvar_male)
+centile_data_female <- data.frame(c = centile_matrix_female, x = oxvar_female, y = oxvar_female)
+
+centile_names <- colnames(centile_data)
+centile_names_male <- colnames(centile_data_male)
+centile_names_female <- colnames(centile_data_female)
+
+
+
+# get y variable name
+yvar_name <- paste(cuneus_model$call$formula[[2]])
+centile_length <- length(cent)
+
+centile_data_cuneus <- data.frame(c = centile_matrix_cuneus, 
+                                  x = oxvar_cuneus, 
+                                  y = oyvar_cuneus)
+
+centile_data_lingual <- data.frame(c = centile_matrix_lingual, 
+                                  x = oxvar_cuneus, y = oyvar_lingual)
+
+
+centile_names_cuneus <- colnames(centile_data_cuneus)
+centile_names_lingual <- colnames(centile_data_lingual)
+
+
+ggplot(data = centile_data_cuneus) +
+  geom_line(data = centile_data_cuneus, aes(x = x, y = c.1), size = 1.5, color = "dodgerblue2", linetype = "dotted") + 
+  geom_line(data = centile_data_cuneus, aes(x = x, y = c.2), size = 1.5, color = "dodgerblue2") +
+  geom_line(data = centile_data_cuneus, aes(x = x, y = c.3), size = 1.5, linetype = "dotted", color = "dodgerblue2") +
+  geom_line(data = centile_data_lingual, aes(x = x, y = c.1), size = 1.5, linetype = "dotted", color = "pink3") + 
+  geom_line(data = centile_data_lingual, aes(x = x, y = c.2), size = 1.5, color = "pink3") +
+  geom_line(data = centile_data_lingual, aes(x = x, y = c.3), size = 1.5, linetype = "dotted", color = "pink3") +
+  theme_minimal() 
+
+
+#ok so in the centile data matrix we have a column with x (the interview age in months), and the value for cuneus thickness @ 2.5, 50th, and 97.5th percentile 
+
+
+centile_data_cuneus_unique <- centile_data_cuneus |> 
+  distinct(x, .keep_all = TRUE) |> 
+  select(x, c.1, c.2, c.3) |> 
+  rename(interview_age = x, 
+         centile_2.5 = c.3, 
+         centile_50 = c.2, 
+         centile_97.5 = c.1) |> 
+  mutate(region = "cuneus")  
+  
+
+
+plot1 <- centile_data_cuneus_unique |> 
+  filter(interview_age == 110) |> 
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = centile_2.5)) + 
+    scale_fill_gradientn(
+    name = "cuneus thickness", 
+    colors = hcl.colors(10, "YlGnBu"), 
+    breaks = c(1.5, 1.75, 2, 2.25, 2.5, 2.75, 3), 
+    limits = c(1, 3)
+  ) +
+  labs(title = "2.5th percentile") + 
+  theme_void()
+  
+
+plot2 <- centile_data_cuneus_unique |> 
+  filter(interview_age == 110) |> 
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = centile_97.5)) + 
+  scale_fill_gradientn(
+    name = "cuneus thickness", 
+    colors = hcl.colors(10, "YlGnBu"), 
+    breaks = c(1.5, 1.75, 2, 2.25, 2.5, 2.75, 3), 
+    limits = c(1, 3)
+  ) + 
+  labs(title = "97.5th percentile") + 
+  theme_void()
+
+
+plot3 <- centile_data_cuneus_unique |> 
+  filter(interview_age == 110) |> 
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = centile_50)) + 
+    scale_fill_gradientn(
+    name = "cuneus thickness", 
+    colors = hcl.colors(10, "YlGnBu"), 
+    breaks = c(1.5, 1.75, 2, 2.25, 2.5, 2.75, 3), 
+    limits = c(1, 3)
+  ) +
+  labs(title = "50th percentile") + 
+  theme_void()
+
+grid.arrange(plot1, plot3, plot2)
+
+ggplot(data = centile_data_cuneus_unique) + 
+  geom_line(data = centile_data_cuneus_unique, aes(x = x, y = c.1), size = 1.5,
+            color = "deeppink4", linetype = 'dotted') + 
+  geom_line(data = centile_data_cuneus_unique, aes(x = x, y = c.2), 
+            size = 1.5, color = 'deeppink4') + 
+  geom_line(data = centile_data_cuneus_unique, aes(x = x, y = c.3), 
+            size = 1.5, color = 'deeppink4', linetype = 'dotted') + 
+  theme_minimal()
+```
+
+# gamlss/ggseg for all thicknesses!!!!
+
+## make models + extract centiles for all brain regions
+
+```{r}
+#| label: locking in. 
+
+
+# need to make gamlss for every single brain region that we have CT data for 
+
+
+#function that will remove NAs for specific brain regions ... 
+region_data <- function(data, region_var, xcol, ycol){
+  cleaned_data <- data |> 
+    filter(!is.na(ycol))
+  cleaned_data$xvar <- cleaned_data[[xcol]]
+  cleaned_data$yvar <- cleaned_data[[ycol]]
+  cleaned_data <- cleaned_data |> 
+    dplyr::select(src_subject_id, site_id_l, interview_age, 
+                  xvar, yvar)
+
+  return(cleaned_data)
+}
+
+
+
+#make models 
+thickness_model <- function(data_subset) {
+  power <- gamlss::findPower(yvar, xvar, data = na.omit(data_subset), k = 2)
+  # build gamlss model
+  model <- gamlss(
+  yvar ~ pb(xvar^power) + gamlss::random(src_subject_id) + gamlss::random(site_id_l),
+  sigma.formula = ~pb(xvar),
+  tau.formula = ~xvar,
+  nu.formula = ~xvar,
+  family = BCTo,
+  data = na.omit(data_subset)
+  )
+
+  return(model)
+}
+
+
+
+
+
+#list of the y variables we want to make models for   
+thickness_regions <- colnames(dat.mri)[3:70]
+
+
+#make models for all of them! 
+thick_model_list <- list() 
+
+
+for (i in 1:length(thickness_regions)) {
+  yvar_name <- thickness_regions[[i]]
+  print(paste("fitting model for", yvar_name))
+  
+  #get dataframe that's complete for current yvar 
+  data_subset = region_data(data = comb, 
+                            region_var = as.character(yvar_name), 
+                            xcol = substitute(interview_age), 
+                            ycol = yvar_name)
+  
+  
+  
+  thick_model_list[[i]] = thickness_model(data_subset)
+  model_name <- paste(yvar_name, "model", sep = "_") 
+  assign(model_name, thick_model_list[[i]])
+  
+  
+}
+
+
+
+
+#testing stufff out 
+centile_data_cuneus_long <- centile_data_cuneus |> 
+  pivot_wider(names_from = x, 
+              values_from = c(c.1, c.2, c.3)) |> 
+  pivot_longer(everything(), 
+               names_to = "col_names") |> 
+  separate(col_names, into = c("centile", "number"), sep = "_") |>
+  mutate(number = as.numeric(number)) |>
+  pivot_wider(names_from = number, values_from = value) |> 
+  mutate(region = as.character(yvar_test))
+
+
+
+#ok now with list of models we want to calculate percentiles @ each age 
+
+
+# family name
+fname <- "BCTo"
+# q function
+qfun <- paste("q", fname, sep = "") 
+
+
+#unique interview ages for which we are calculating centiles
+model_xvars <- unique(comb$interview_age)
+model_xvars <- model_xvars[!is.na(model_xvars)]
+model_oxvars <- model_xvars[order(model_xvars)] 
+
+
+#initialize big matrix with columns for each age and for region specification 
+#rows that specify the centile  
+
+thick_brain_df <- data.frame(matrix(ncol = length(model_xvars) + 4, nrow = 0))
+
+colnames(thick_brain_df) <- c("centile", model_oxvar, "region", "race", "sex")
+
+
+#for every model we want to calculate every centile  
+for(i in 1:(length(thickness_regions))){ 
+  
+  #define model, region that we're working on 
+  model <- thick_model_list[[i]]
+  yvar_name <- thickness_regions[[i]] 
+  
+  #initialize region matrix 
+  region_matrix <- matrix(0, ncol = length(cent), nrow = length(model_xvars))
+  
+  ii <- 0 
+  #calculate centiles for every age --> region matrix with centiles, in order of xvars 
+  for(var in cent){ 
+    
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(model,"mu")[order(model_xvars)],
+    sigma = fitted(model,"sigma")[order(model_xvars)],
+    nu = fitted(model,"nu")[order(model_xvars)],
+    tau = fitted(model,"tau")[order(model_xvars)]) 
+  ii <- ii + 1
+    region_matrix[ ,ii] <- eval(newcall)
+  }
+  
+  #add the ages in, reformat so it matches the brain df 
+  region_df <- data.frame(c = region_matrix, 
+                          x = model_oxvars) |> 
+    pivot_wider(names_from = x, 
+                values_from = centiles) |> 
+    pivot_longer(everything(), 
+                 names_to = "col_names") |> 
+    separate(col_names, into = c("centile", "age"), sep = "_") |> 
+    mutate(age = as.numeric(age)) |> 
+    pivot_wider(names_from = age, values_from = value) |> 
+    mutate(region = as.character(yvar_name))
+  
+  #combine with the rest of the data 
+  brain_df <- rbind(brain_df, region_df)
+  
+    
+    }
+
+#add brain regions and hemispheres to this dataframe 
+brain_df_clean <- brain_df |> 
+  mutate(hemisphere = case_when( 
+                                 grepl("lh", region) ~ "left", 
+                                 grepl("rh", region) ~ "right", 
+                                 .default = NA),
+        region = factor(region), 
+         region = fct_collapse(region, 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                       "smri_thick_cdk_periccrh"), 
+                               "caudal anterior cingulate" = c("smri_thick_cdk_cdacatelh", 
+                                                               "smri_thick_cdk_cdacaterh"), 
+                               "caudal middle frontal" = c("smri_thick_cdk_cdmdfrlh", 
+                                                           "smri_thick_cdk_cdmdfrrh"), 
+                               "cuneus" = c("smri_thick_cdk_cuneuslh", 
+                                            "smri_thick_cdk_cuneusrh"), 
+                               "entorhinal" = c("smri_thick_cdk_ehinallh", 
+                                                "smri_thick_cdk_ehinalrh"), 
+                               "fusiform" = c("smri_thick_cdk_fusiformlh", 
+                                              "smri_thick_cdk_fusiformrh"), 
+                               "inferior parietal" = c("smri_thick_cdk_ifpllh", 
+                                                       "smri_thick_cdk_ifplrh"),
+                               "isthmus cingulate" = c("smri_thick_cdk_ihcatelh", 
+                                                       "smri_thick_cdk_ihcaterh"), 
+                               "lateral occipital" = c("smri_thick_cdk_locclh", 
+                                                       "smri_thick_cdk_loccrh"), 
+                               "lateral orbitofrontal" = c("smri_thick_cdk_lobfrlh", 
+                                                           "smri_thick_cdk_lobfrrh"), 
+                               "lingual" = c("smri_thick_cdk_linguallh", 
+                                             "smri_thick_cdk_lingualrh"), 
+                               "medial orbitofrontal" = c("smri_thick_cdk_mobfrlh", 
+                                                          "smri_thick_cdk_mobfrrh"), 
+                               "middle temporal" = c("smri_thick_cdk_mdtmlh", 
+                                                     "smri_thick_cdk_mdtmrh"), 
+                               "parahippocampal" = c("smri_thick_cdk_parahpallh", 
+                                                     "smri_thick_cdk_parahpalrh"), 
+                               "paracentral" = c("smri_thick_cdk_paracnlh", 
+                                                 "smri_thick_cdk_paracnrh"), 
+                               "pars opercularis" = c("smri_thick_cdk_parsopclh", 
+                                                      "smri_thick_cdk_parsopcrh"), 
+                               "pars orbitalis" = c("smri_thick_cdk_parsobislh", 
+                                                    "smri_thick_cdk_parsobisrh"), 
+                               "pars triangularis" = c("smri_thick_cdk_parstgrislh", 
+                                                       "smri_thick_cdk_parstgrisrh"), 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                   "smri_thick_cdk_periccrh"), 
+                               "postcentral" = c("smri_thick_cdk_postcnlh",
+                                                 "smri_thick_cdk_postcnrh"), 
+                               "posterior cingulate" = c("smri_thick_cdk_ptcatelh", 
+                                                         "smri_thick_cdk_ptcaterh"), 
+                               "precentral" = c("smri_thick_cdk_precnlh", 
+                                                "smri_thick_cdk_precnrh"), 
+                               "precuneus" = c("smri_thick_cdk_pclh", 
+                                               "smri_thick_cdk_pcrh"), 
+                               "rostral anterior cingulate" = c("smri_thick_cdk_rracatelh", 
+                                                                "smri_thick_cdk_rracaterh"), 
+                               "rostral middle frontal" = c("smri_thick_cdk_rrmdfrlh", 
+                                                            "smri_thick_cdk_rrmdfrrh"), 
+                               "superior frontal" = c("smri_thick_cdk_sufrlh", 
+                                                      "smri_thick_cdk_sufrrh"), 
+                               "superior parietal" = c("smri_thick_cdk_supllh", 
+                                                       "smri_thick_cdk_suplrh"), 
+                               "superior temporal" = c("smri_thick_cdk_sutmlh", 
+                                                       "smri_thick_cdk_sutmrh"), 
+                               "supramarginal" = c("smri_thick_cdk_smlh", 
+                                                   "smri_thick_cdk_smrh"), 
+                               "frontal pole" = c("smri_thick_cdk_frpolelh", 
+                                                  "smri_thick_cdk_frpolerh"), 
+                               "temporal pole" = c("smri_thick_cdk_tmpolelh", 
+                                                   "smri_thick_cdk_tmpolerh"), 
+                               "transverse temporal" = c("smri_thick_cdk_trvtmlh", 
+                                                         "smri_thick_cdk_trvtmrh"), 
+                               "insula" = c("smri_thick_cdk_insulalh", 
+                                            "smri_thick_cdk_insularh"), 
+                               "inferior temporal" = c("smri_thick_cdk_iftmlh", 
+                                                       "smri_thick_cdk_iftmrh"),
+                               "bankssts" = c("smri_thick_cdk_banksstslh", 
+                                              "smri_thick_cdk_banksstsrh"),
+                               
+                               other_level = 'missing'
+                                                       )) |> 
+  #add in sex and race/ethnicity columns so that we can add to this later  
+  mutate(sex = "all", 
+         race_ethnicity = "all")
+                            
+
+
+```
+
+## fun test plots!
+
+```{r}
+#| label: plotting-them! 
+
+
+plot1 <- brain_df_clean |> 
+  select(centile, '115', region, hemisphere) |> 
+  filter(centile == 'c.1') |>
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = `115`)) + 
+  scale_fill_gradientn(
+    name = "cortical thickness", 
+    colors = hcl.colors(10, "viridis"), 
+    breaks = c(1, 2, 3, 4), 
+    limits = c(1.2, 4.5)
+  ) + 
+  labs(title = "2.5th percentile") + 
+  theme_void()
+
+  
+
+
+plot2 <- brain_df_clean |> 
+  select(centile, '115', region, hemisphere) |> 
+  filter(centile == 'c.2') |>
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = `115`)) + 
+  scale_fill_gradientn(
+    name = "cortical thickness", 
+    colors = hcl.colors(10, "viridis"), 
+    breaks = c(1, 2, 3, 4), 
+    limits = c(1.2, 4.5)
+  ) + 
+  labs(title = "50th percentile") + 
+  theme_void()
+                            
+                            
+    
+
+
+plot3 <- brain_df_clean |> 
+  select(centile, '115', region, hemisphere) |> 
+  filter(centile == 'c.3') |>
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = `115`)) + 
+  scale_fill_gradientn(
+    name = "cortical thickness", 
+    colors = hcl.colors(10, "viridis"), 
+    breaks = c(1, 2, 3, 4), 
+    limits = c(1.2, 4.5)
+  ) + 
+  labs(title = "97.5th percentile") + 
+  theme_void()
+
+
+grid.arrange(plot1, plot2, plot3)
+
+
+
+
+plot1 <- brain_df_clean |> 
+  select(centile, '170', region, hemisphere) |> 
+  filter(centile == 'c.1') |>
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = `170`)) + 
+  scale_fill_gradientn(
+    name = "cortical thickness (mm)", 
+    colors = hcl.colors(10, "viridis"), 
+    breaks = c(1, 2, 3, 4), 
+    limits = c(1.2, 4.5)
+  ) + 
+  labs(title = "2.5th percentile") + 
+  theme_void()
+
+  
+
+
+plot2 <- brain_df_clean |> 
+  select(centile, '170', region, hemisphere) |> 
+  filter(centile == 'c.2') |>
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = `170`)) + 
+  scale_fill_gradientn(
+    name = "cortical thickness (mm)", 
+    colors = hcl.colors(10, "viridis"), 
+    breaks = c(1, 2, 3, 4), 
+    limits = c(1.2, 4.5)
+  ) + 
+  labs(title = "50th percentile") + 
+  theme_void()
+                            
+                            
+    
+
+
+plot3 <- brain_df_clean |> 
+  select(centile, '170', region, hemisphere) |> 
+  filter(centile == 'c.3') |>
+  ggplot() + 
+  geom_brain(atlas = dk, 
+             aes(fill = `170`)) + 
+  scale_fill_gradientn(
+    name = "cortical thickness (mm)", 
+    colors = hcl.colors(10, "viridis"), 
+    breaks = c(1, 2, 3, 4), 
+    limits = c(1.2, 4.5)
+  ) + 
+  labs(title = "97.5th percentile") + 
+  theme_void()
+
+
+grid.arrange(plot1, plot2, plot3, 
+             top = textGrob("Centile Visualizations at 170 months", 
+                            gp=gpar(fontsize=20,font=3)))
+
+
+
+combined <- plot1 + plot2 + plot3 + 
+  plot_annotation(title = "Centile Visualizations at 170 Months", 
+                  theme = theme(plot.title = element_text(face = 'italic', size = 20))) & 
+  theme(legend.position = "right")
+
+combined + plot_layout(nrow = 3, ncol = 1, guides = 'collect')
+
+```
+
+## generalizing the plotting...
+
+```{r}
+#| label: generalizations 
+#| warning: FALSE 
+
+#goal: want to be able to take in an age and then plot 2.5th, 50th, and 97.5th percentiles (maybe we can add functionality to plot different centiles too)? 
+
+#makes a plot for a specific centile 
+plot_centile <- function(centile_input, age_input){ 
+  
+  #make a dataframe to work on  
+  working_df <- brain_df_clean 
+  
+  #values we want for the specific age 
+  working_df$values <- brain_df_clean[[age_input]]
+  head(working_df)
+  
+  plot <- working_df |> 
+    select(centile, values, region, hemisphere) |> 
+    filter(centile == centile_input) |> 
+    ggplot() + 
+    geom_brain(atlas = dk, 
+               aes(fill = values)) + 
+    scale_fill_gradientn( 
+      name = 'cortical thickness (mm)', 
+      colors = hcl.colors(10, 'viridis'), 
+      breaks = c(1, 2, 3, 4), 
+      limits = c(1, 4.5)) + 
+    labs(title = paste(centile_input, "th percentile", sep = "")) + 
+    theme_void()
+  
+  return(plot)
+  
+  }
+
+plot_centile('c.1', '117')
+
+
+
+#makes three plots for a given age 
+plot_age <- function(age){ 
+  
+  for(centile in c('c.1', 'c.2', 'c.3')){ 
+    
+    plot_name <- paste(centile, "plot", sep = "_")
+    plot <- plot_centile(centile, age)
+    assign(plot_name, plot)
+    }
+  
+  
+  return(grid.arrange(c.1_plot, c.2_plot, c.3_plot, 
+                      top = paste("Centile Visualizations at", age, "Months")))
+  
+  
+  }
+
+
+
+plot_age('118')
+```
+
+## okay... make generalizations better \<3
+
+```{r}
+#| label: demog-combo-data
+
+
+comb <- comb |> 
+  filter(sex != "Intersex-Male") |> 
+  mutate(sex = factor(sex)) |> 
+  filter(!is.na(race_ethnicity))
+
+#demographic combos to model 
+demog_combos <- comb |>
+  expand(sex, race_ethnicity)
+demog_combos <- as.matrix(demog_combos)
+
+# initialize for testing
+filter_var1 = "sex"
+filter_val1 = "Male"
+filter_var2 = "race_ethnicity"
+filter_val2 = "White"
+xcol = substitute(interview_age)
+
+subset_data <- function(
+    comb,
+    filter_var1 = NULL,
+    filter_val1 = NULL,
+    filter_var2 = NULL,
+    filter_val2 = NULL
+) {
+  
+    # filter data
+  if(!is.null(filter_var1) & !is.null(filter_val1) & is.null(filter_var2) & is.null(filter_var2)) {
+    data_subset <- subset(
+      comb, comb[[filter_var1]] == filter_val1)
+  }
+  if(!is.null(filter_var2) & !is.null(filter_var2)) {
+    data_subset <- subset(
+      comb, comb[[filter_var1]] == filter_val1 & comb[[filter_var2]] == filter_val2)
+    
+  }
+
+  return(data_subset)
+}
+
+
+
+#make list of dataframes for every demographic combination of people 
+data_list <- list()
+for(row in 1:nrow(demog_combos)) {
+  data_list[[row]] = subset_data(
+    comb,
+    xcol = substitute(interview_age),
+    ycol = substitute(area),
+    filter_var1 = "sex",
+    filter_val1 = demog_combos[row, 1],
+    filter_var2 = "race_ethnicity",
+    filter_val2 = demog_combos[row, 2])
+}
+
+
+```
+
+### make models for every demographic combination
+
+```{r}
+#| label: demog-brain-area-models
+
+#write.csv(brain_df_clean,"~/Downloads/ABCD_REU/brain_df_clean.csv", row.names = FALSE)
+
+# want to be able to select centiles 0.4, 2, 2.5, 10, 25, 50, 75, 90, 97.5, 98, 99.5, race/sex
+
+#define a list of centiles that we want information for  
+centiles <- c(0.4, 2, 2.5, 10, 25, 50, 75, 90, 97.5, 98, 99.5)
+
+#define list of centile labels that will come from running models 
+centile_labels <- c(paste("c.", rep(1:length(centiles)), sep = ''))
+
+
+
+#okay so now make models for every demographic combination + every brain area for each demog group 
+
+full_model_list <- c()
+
+#want to track which iteration we are on (680 total for thickness) 
+iteration_number <- 0 
+
+
+#for every demographic combination 
+for(demog_row in 1:nrow(demog_combos)) { 
+  #dataframe that only has the info for the current demographic group 
+  demog_data = data_list[[demog_row]]
+  demog_sex <- demog_combos[demog_row, 1]
+  demog_race <- demog_combos[demog_row, 2]
+  #for every brain region within every demographic combination
+  for(thick_row in 1:length(thickness_regions)){ 
+    iteration_number <- iteration_number + 1
+    thick_region <- thickness_regions[[thick_row]]
+    print(paste("fitting model", iteration_number, ":", demog_race, 
+                demog_sex, thick_region))
+    current_df = region_data(data = demog_data, 
+                             region_var = as.character(thick_region), 
+                             xcol = substitute(interview_age), 
+                             ycol = thick_region)
+    
+    model_list[[iteration_number]] = thickness_model(current_df)
+    model_name <- paste(demog_race, demog_sex, thick_region, "model", sep = "_") 
+    assign(model_name, model_list[[iteration_number]])
+    }
+  }
+
+
+
+
+```
+
+### put centiles into a dataframe
+
+```{r}
+#| warning: FALSE
+
+
+#now for every model we want to extract the centiles in our list and put them into a dataframe 
+
+#every region should have 10 demog models, and the order in the model list is 10 per demog combo 
+rep_thickness_regions <- rep(thickness_regions, times = 10)
+
+demog_sex <- demog_combos[, 1]
+demog_race <- demog_combos[, 2]
+
+#each demographic combo has 68 models 
+rep_demog_sex <- rep(demog_sex, each = 68) 
+rep_demog_race <- rep(demog_race, each = 68)
+
+
+#initialize centile matrix with columns for age and rows for centiles 
+
+full_brain_df <- data.frame(matrix(ncol = length(model_xvars) + 4, nrow = 0))
+colnames(full_brain_df) <- c("centile", model_oxvars, "region", "race", "sex")
+
+#for every model we want to calculate every centile  
+for(i in 1:iteration_number){ 
+  
+  #define model, region, race/sex that we're working on 
+  model <- model_list[[i]]
+  yvar_name <- rep_thickness_regions[[i]]
+  model_race <- rep_demog_race[[i]] 
+  model_sex <- rep_demog_sex[[i]]
+  
+  
+  #initialize region matrix 
+  region_matrix <- matrix(0, ncol = length(centiles), 
+                          nrow = length(model_xvars))
+  
+  ii <- 0 
+  #calculate centiles for every age --> region matrix with centiles, in order of xvars 
+  for(var in centiles){ 
+    
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(model,"mu")[order(model_xvars)],
+    sigma = fitted(model,"sigma")[order(model_xvars)],
+    nu = fitted(model,"nu")[order(model_xvars)],
+    tau = fitted(model,"tau")[order(model_xvars)]) 
+  ii <- ii + 1
+    region_matrix[ ,ii] <- eval(newcall)
+  }
+  
+  #add the ages in, reformat so it matches the brain df 
+  region_df <- data.frame(c = region_matrix, 
+                          x = model_oxvars) |> 
+    pivot_wider(names_from = x, 
+                values_from = c(centile_labels)) |> 
+    pivot_longer(everything(), 
+                 names_to = "col_names") |> 
+    separate(col_names, into = c("centile", "age"), sep = "_") |> 
+    mutate(age = as.numeric(age)) |> 
+    pivot_wider(names_from = age, values_from = value) |> 
+    mutate(region = as.character(yvar_name)) |> 
+    mutate(centile = case_match(centile, 
+      "c.1" ~ 0.4, 
+      "c.2" ~ 2, 
+      "c.3" ~ 2.5, 
+      "c.4" ~ 10, 
+      "c.5" ~ 25, 
+      "c.6" ~ 50, 
+      "c.7" ~ 75, 
+      "c.8" ~ 90, 
+      "c.9" ~ 97.5, 
+      "c.10" ~ 98, 
+      "c.11" ~ 99.5), 
+      race = model_race, 
+      sex = model_sex) 
+  
+  #combine with the rest of the data 
+  full_brain_df <- rbind(full_brain_df, region_df)
+    }
+
+
+
+
+
+
+
+```
+
+### add rows for general race/sex demographic groups
+
+```{r}
+#| warning: FALSE
+
+#segmented by SEX: 
+
+
+
+#dataframes for the sexes 
+
+sex_data_list <- list()
+sexes <- c("Male", "Female")
+
+for(i in 1:length(sexes)) {
+    sex_data_list[[i]] = subset_data(
+    comb,
+    filter_var1 = "sex",
+    filter_val1 = sexes[i])
+    }
+
+sex_model_list <- c()
+iteration_number <- 0 
+#for every demographic combination 
+for(sex_row in 1:2) { 
+  #dataframe that only has the info for the current demographic group 
+  sex_data = sex_data_list[sex_row]
+  demog_sex <- sexes[sex_row]
+  #for every brain region within every demographic combination
+  for(thick_row in 1:length(thickness_regions)){ 
+    iteration_number <- iteration_number + 1
+    thick_region <- thickness_regions[[thick_row]]
+    print(paste("fitting model", iteration_number, ":", demog_sex, thick_region))
+    current_df = region_data(data = demog_data, 
+                             region_var = as.character(thick_region), 
+                             xcol = substitute(interview_age), 
+                             ycol = thick_region)
+    
+    sex_model_list[[iteration_number]] = thickness_model(current_df)
+    model_name <- paste(demog_sex, thick_region, "model", sep = "_") 
+    assign(model_name, sex_model_list[[iteration_number]])
+    }
+  }
+
+
+# & now make centile predictions for every area of the brain based on sex/region-specific models 
+
+rep_thickness_regions <- rep(thickness_regions, times = 2)
+rep_demog_sex <- rep(sexes, each = 68)
+
+
+for(i in 1:iteration_number){ 
+  
+  #define model, region, race/sex that we're working on 
+  model <- sex_model_list[[i]]
+  yvar_name <- rep_thickness_regions[[i]]
+  model_sex <- rep_demog_sex[[i]]
+  
+  
+  #initialize region matrix 
+  region_matrix <- matrix(0, ncol = length(centiles), 
+                          nrow = length(model_xvars))
+  
+  ii <- 0 
+  #calculate centiles for every age --> region matrix with centiles, in order of xvars 
+  for(var in centiles){ 
+    
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(model,"mu")[order(model_xvars)],
+    sigma = fitted(model,"sigma")[order(model_xvars)],
+    nu = fitted(model,"nu")[order(model_xvars)],
+    tau = fitted(model,"tau")[order(model_xvars)]) 
+  ii <- ii + 1
+    region_matrix[ ,ii] <- eval(newcall)
+  }
+  
+  #add the ages in, reformat so it matches the brain df 
+  region_df <- data.frame(c = region_matrix, 
+                          x = model_oxvars) |> 
+    pivot_wider(names_from = x, 
+                values_from = c(centile_labels)) |> 
+    pivot_longer(everything(), 
+                 names_to = "col_names") |> 
+    separate(col_names, into = c("centile", "age"), sep = "_") |> 
+    mutate(age = as.numeric(age)) |> 
+    pivot_wider(names_from = age, values_from = value) |> 
+    mutate(region = as.character(yvar_name)) |> 
+    mutate(centile = case_match(centile, 
+      "c.1" ~ 0.4, 
+      "c.2" ~ 2, 
+      "c.3" ~ 2.5, 
+      "c.4" ~ 10, 
+      "c.5" ~ 25, 
+      "c.6" ~ 50, 
+      "c.7" ~ 75, 
+      "c.8" ~ 90, 
+      "c.9" ~ 97.5, 
+      "c.10" ~ 98, 
+      "c.11" ~ 99.5), 
+      race = "all", 
+      sex = model_sex) 
+  
+  #combine with the rest of the data 
+  full_brain_df <- rbind(full_brain_df, region_df)
+    }
+
+
+
+#segmented by RACE: 
+
+
+races <- c(unique(demog_race))
+race_data_list <- list()
+
+for(i in 1:length(races)) {
+    race_data_list[[i]] = subset_data(
+    comb,
+    filter_var1 = "race_ethnicity",
+    filter_val1 = races[i])
+    }
+
+
+#fit models for every racial group 
+race_model_list <- c()
+iteration_number <- 0 
+
+for(race_row in 1:length(races)) { 
+  #dataframe that only has the info for the current demographic group 
+  race_data = race_data_list[race_row]
+  demog_race <- races[race_row]
+  #for every brain region within every demographic combination
+  for(thick_row in 1:length(thickness_regions)){ 
+    iteration_number <- iteration_number + 1
+    thick_region <- thickness_regions[[thick_row]]
+    print(paste("fitting model", iteration_number, ":", demog_race, thick_region))
+    current_df = region_data(data = demog_data, 
+                             region_var = as.character(thick_region), 
+                             xcol = substitute(interview_age), 
+                             ycol = thick_region)
+    
+    race_model_list[[iteration_number]] = thickness_model(current_df)
+    model_name <- paste(demog_race, thick_region, "model", sep = "_") 
+    assign(model_name, race_model_list[[iteration_number]])
+    }
+  }
+
+
+#and calculate centiles and combine with full brain dataframe 
+
+
+rep_thickness_regions <- rep(thickness_regions, times = length(races))
+rep_demog_races <- rep(races, each = 68)
+
+for(i in 1:iteration_number){ 
+  
+  #define model, region, race/sex that we're working on 
+  model <- race_model_list[[i]]
+  yvar_name <- rep_thickness_regions[[i]]
+  model_race <- rep_demog_races[[i]]
+  
+  
+  #initialize region matrix 
+  region_matrix <- matrix(0, ncol = length(centiles), 
+                          nrow = length(model_xvars))
+  
+  ii <- 0 
+  #calculate centiles for every age --> region matrix with centiles, in order of xvars 
+  for(var in centiles){ 
+    
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(model,"mu")[order(model_xvars)],
+    sigma = fitted(model,"sigma")[order(model_xvars)],
+    nu = fitted(model,"nu")[order(model_xvars)],
+    tau = fitted(model,"tau")[order(model_xvars)]) 
+  ii <- ii + 1
+    region_matrix[ ,ii] <- eval(newcall)
+  }
+  
+  #add the ages in, reformat so it matches the brain df 
+  region_df <- data.frame(c = region_matrix, 
+                          x = model_oxvars) |> 
+    pivot_wider(names_from = x, 
+                values_from = c(centile_labels)) |> 
+    pivot_longer(everything(), 
+                 names_to = "col_names") |> 
+    separate(col_names, into = c("centile", "age"), sep = "_") |> 
+    mutate(age = as.numeric(age)) |> 
+    pivot_wider(names_from = age, values_from = value) |> 
+    mutate(region = as.character(yvar_name)) |> 
+    mutate(centile = case_match(centile, 
+      "c.1" ~ 0.4, 
+      "c.2" ~ 2, 
+      "c.3" ~ 2.5, 
+      "c.4" ~ 10, 
+      "c.5" ~ 25, 
+      "c.6" ~ 50, 
+      "c.7" ~ 75, 
+      "c.8" ~ 90, 
+      "c.9" ~ 97.5, 
+      "c.10" ~ 98, 
+      "c.11" ~ 99.5), 
+      race = model_race, 
+      sex = "all") 
+  
+  #combine with the rest of the data 
+  full_brain_df <- rbind(full_brain_df, region_df)
+    }
+
+
+
+#and now add in data from both sex, all race: 
+
+
+#make models for all of them! 
+thick_model_list <- list() 
+
+
+for (i in 1:length(thickness_regions)) {
+  yvar_name <- thickness_regions[[i]]
+  print(paste("fitting model for", yvar_name))
+  
+  #get dataframe that's complete for current yvar 
+  data_subset = region_data(data = comb, 
+                            region_var = as.character(yvar_name), 
+                            xcol = substitute(interview_age), 
+                            ycol = yvar_name)
+  
+  
+  
+  thick_model_list[[i]] = thickness_model(data_subset)
+  model_name <- paste(yvar_name, "model", sep = "_") 
+  assign(model_name, thick_model_list[[i]])
+}
+
+
+#initialize big matrix with columns for each age and for region specification 
+#rows that specify the centile  
+
+
+#for every model we want to calculate every centile  
+for(i in 1:(length(thickness_regions))){ 
+  
+  #define model, region that we're working on 
+  model <- thick_model_list[[i]]
+  yvar_name <- thickness_regions[[i]] 
+  
+  #initialize region matrix 
+  region_matrix <- matrix(0, ncol = length(centiles), nrow = length(model_xvars))
+  
+  ii <- 0 
+  #calculate centiles for every age --> region matrix with centiles, in order of xvars 
+  for(var in centiles){ 
+    
+  newcall <- call(
+    qfun, var/100,
+    mu = fitted(model,"mu")[order(model_xvars)],
+    sigma = fitted(model,"sigma")[order(model_xvars)],
+    nu = fitted(model,"nu")[order(model_xvars)],
+    tau = fitted(model,"tau")[order(model_xvars)]) 
+  ii <- ii + 1
+    region_matrix[ ,ii] <- eval(newcall)
+  }
+
+  
+    #add the ages in, reformat so it matches the brain df 
+  region_df <- data.frame(c = region_matrix, 
+                          x = model_oxvars) |> 
+    pivot_wider(names_from = x, 
+                values_from = c(centile_labels)) |> 
+    pivot_longer(everything(), 
+                 names_to = "col_names") |> 
+    separate(col_names, into = c("centile", "age"), sep = "_") |> 
+    mutate(age = as.numeric(age)) |> 
+    pivot_wider(names_from = age, values_from = value) |> 
+    mutate(region = as.character(yvar_name)) |> 
+    mutate(centile = case_match(centile, 
+      "c.1" ~ 0.4, 
+      "c.2" ~ 2, 
+      "c.3" ~ 2.5, 
+      "c.4" ~ 10, 
+      "c.5" ~ 25, 
+      "c.6" ~ 50, 
+      "c.7" ~ 75, 
+      "c.8" ~ 90, 
+      "c.9" ~ 97.5, 
+      "c.10" ~ 98, 
+      "c.11" ~ 99.5), 
+      race = "all", 
+      sex = "all") 
+  
+  
+  #combine with the rest of the data 
+  full_brain_df <- rbind(full_brain_df, region_df)
+  
+    
+    }
+
+
+#add brain regions and hemispheres to this dataframe 
+brain_df_clean <- full_brain_df |> 
+  mutate(hemisphere = case_when( 
+                                 grepl("lh", region) ~ "left", 
+                                 grepl("rh", region) ~ "right", 
+                                 .default = NA),
+        region = factor(region), 
+         region = fct_collapse(region, 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                       "smri_thick_cdk_periccrh"), 
+                               "caudal anterior cingulate" = c("smri_thick_cdk_cdacatelh", 
+                                                               "smri_thick_cdk_cdacaterh"), 
+                               "caudal middle frontal" = c("smri_thick_cdk_cdmdfrlh", 
+                                                           "smri_thick_cdk_cdmdfrrh"), 
+                               "cuneus" = c("smri_thick_cdk_cuneuslh", 
+                                            "smri_thick_cdk_cuneusrh"), 
+                               "entorhinal" = c("smri_thick_cdk_ehinallh", 
+                                                "smri_thick_cdk_ehinalrh"), 
+                               "fusiform" = c("smri_thick_cdk_fusiformlh", 
+                                              "smri_thick_cdk_fusiformrh"), 
+                               "inferior parietal" = c("smri_thick_cdk_ifpllh", 
+                                                       "smri_thick_cdk_ifplrh"),
+                               "isthmus cingulate" = c("smri_thick_cdk_ihcatelh", 
+                                                       "smri_thick_cdk_ihcaterh"), 
+                               "lateral occipital" = c("smri_thick_cdk_locclh", 
+                                                       "smri_thick_cdk_loccrh"), 
+                               "lateral orbitofrontal" = c("smri_thick_cdk_lobfrlh", 
+                                                           "smri_thick_cdk_lobfrrh"), 
+                               "lingual" = c("smri_thick_cdk_linguallh", 
+                                             "smri_thick_cdk_lingualrh"), 
+                               "medial orbitofrontal" = c("smri_thick_cdk_mobfrlh", 
+                                                          "smri_thick_cdk_mobfrrh"), 
+                               "middle temporal" = c("smri_thick_cdk_mdtmlh", 
+                                                     "smri_thick_cdk_mdtmrh"), 
+                               "parahippocampal" = c("smri_thick_cdk_parahpallh", 
+                                                     "smri_thick_cdk_parahpalrh"), 
+                               "paracentral" = c("smri_thick_cdk_paracnlh", 
+                                                 "smri_thick_cdk_paracnrh"), 
+                               "pars opercularis" = c("smri_thick_cdk_parsopclh", 
+                                                      "smri_thick_cdk_parsopcrh"), 
+                               "pars orbitalis" = c("smri_thick_cdk_parsobislh", 
+                                                    "smri_thick_cdk_parsobisrh"), 
+                               "pars triangularis" = c("smri_thick_cdk_parstgrislh", 
+                                                       "smri_thick_cdk_parstgrisrh"), 
+                               "pericalcarine" = c("smri_thick_cdk_pericclh", 
+                                                   "smri_thick_cdk_periccrh"), 
+                               "postcentral" = c("smri_thick_cdk_postcnlh",
+                                                 "smri_thick_cdk_postcnrh"), 
+                               "posterior cingulate" = c("smri_thick_cdk_ptcatelh", 
+                                                         "smri_thick_cdk_ptcaterh"), 
+                               "precentral" = c("smri_thick_cdk_precnlh", 
+                                                "smri_thick_cdk_precnrh"), 
+                               "precuneus" = c("smri_thick_cdk_pclh", 
+                                               "smri_thick_cdk_pcrh"), 
+                               "rostral anterior cingulate" = c("smri_thick_cdk_rracatelh", 
+                                                                "smri_thick_cdk_rracaterh"), 
+                               "rostral middle frontal" = c("smri_thick_cdk_rrmdfrlh", 
+                                                            "smri_thick_cdk_rrmdfrrh"), 
+                               "superior frontal" = c("smri_thick_cdk_sufrlh", 
+                                                      "smri_thick_cdk_sufrrh"), 
+                               "superior parietal" = c("smri_thick_cdk_supllh", 
+                                                       "smri_thick_cdk_suplrh"), 
+                               "superior temporal" = c("smri_thick_cdk_sutmlh", 
+                                                       "smri_thick_cdk_sutmrh"), 
+                               "supramarginal" = c("smri_thick_cdk_smlh", 
+                                                   "smri_thick_cdk_smrh"), 
+                               "frontal pole" = c("smri_thick_cdk_frpolelh", 
+                                                  "smri_thick_cdk_frpolerh"), 
+                               "temporal pole" = c("smri_thick_cdk_tmpolelh", 
+                                                   "smri_thick_cdk_tmpolerh"), 
+                               "transverse temporal" = c("smri_thick_cdk_trvtmlh", 
+                                                         "smri_thick_cdk_trvtmrh"), 
+                               "insula" = c("smri_thick_cdk_insulalh", 
+                                            "smri_thick_cdk_insularh"), 
+                               "inferior temporal" = c("smri_thick_cdk_iftmlh", 
+                                                       "smri_thick_cdk_iftmrh"),
+                               "bankssts" = c("smri_thick_cdk_banksstslh", 
+                                              "smri_thick_cdk_banksstsrh"),
+                               
+                               other_level = 'missing'
+                                                       ))
+
+
+
+#WOOHOOOOOO FULL DATAFRAME IS DONE. NOW I WILL WRITE IT TO A CSV SO I NEVER LOSE IT 
+
+write.csv(brain_df_clean,"~/Downloads/ABCD_REU/full_brain_df.csv")
+
+
+
+
+```
+
+# functions to plot brain by demographic
+
+```{r}
+#| label: demographic-brains! 
+#| warning: FALSE 
+#| echo: FALSE
+
+
+#goal: want a function that takes race, sex, age, centiles and plots them. 
+
+
+#makes a plot for a specific centile + race/sex combo 
+plot_centile <- function(centile_input, age_input, race_input, sex_input){ 
+  
+  #make dataframe for relevant demographic groups   
+  working_df <- brain_df_clean|> 
+    filter(race == race_input,
+           sex == sex_input)
+  
+  #values we want for the specific age 
+  working_df$values <- working_df[[age_input]]
+  
+  plot <- working_df |> 
+    select(centile, values, region, hemisphere) |> 
+    filter(centile == centile_input) |> 
+    ggplot() + 
+    geom_brain(atlas = dk, 
+               hemi = "left",
+               aes(fill = values)) + 
+    scale_fill_gradientn( 
+      name = 'cortical thickness (mm)', 
+      colors = hcl.colors(10, 'viridis'), 
+      breaks = c(1, 2, 3, 4), 
+      limits = c(1, 4.5)) + 
+    labs(title = paste(centile_input, "th percentile", sep = "")) + 
+    theme_void()
+  
+  return(plot)
+  
+  }
+
+
+#plot_centile(97.5, '180', race_input = "White", sex_input = "Male")
+
+
+plot_centiles <- function(centiles_input, age_input, race_input, sex_input){ 
+  plot_outputs <- c()
+  
+  for(i in 1:length(centiles_input)){ 
+    curr_centile <- centiles_input[i] 
+    plot <- plot_centile(curr_centile, age_input, race_input, sex_input)
+    plot_outputs[[i]] <- plot
+    }
+  
+  title <- paste("Centile Visualizations for", race_input, sex_input, "Adolescents", 
+                 "--", age_input, "Months")
+  
+  nCol = floor(sqrt(length(centiles_input)))
+  #top_text <- textGrob(title, gp = gpar(fontsize = 20, fontface = "italic"))
+  
+  final_plot <- do.call("grid.arrange", 
+                        c(plot_outputs, ncol=nCol, top = title) )
+  }
+
+
+
+cent_test <- c(2.5, 50, 97.5)
+plot_centiles(cent_test, '110', 'White', 'Male')
+plot_centiles(cent_test, '110', "Asian", "Female")
+
+
+
+
+
+
+
+```

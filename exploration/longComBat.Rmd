@@ -1,0 +1,314 @@
+---
+title: "longComBat"
+author: Jeffrey Choi
+output: html_document
+---
+
+```{r}
+#| warning: false
+
+# lets work with cortical thickness first
+data_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/'
+
+setwd(data_dir)
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c(999, 777))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+# desikan atlas, cortical thickness
+dat.mri.ct = read.csv('imaging/mri_y_smr_thk_dsk.csv')
+
+list_of_ct_regions <- colnames(dat.mri.ct)[3:ncol(dat.mri.ct)] # this is important
+
+
+# basic cleaning for demographic variables
+demog_clean <- demog |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  # fill in race and sex first (avoid losing demog info due to filtering eventname)
+  group_by(src_subject_id) %>%
+  mutate(
+    race_ethnicity = first(na.omit(race_ethnicity)),
+    demo_sex_v2 = first(na.omit(demo_sex_v2))
+  ) %>%
+  ungroup() %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Intersex-Male" = "3"
+    )) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1"))
+
+
+thickness <- dat.mri.ct |>
+  # join mri data to demographics
+  left_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>
+  # join to study covariates
+  left_join(study_covars, by = join_by("eventname", "src_subject_id")) |>
+  select(src_subject_id, eventname, starts_with("smri"), age, sex, race_ethnicity 
+         , site_id_l, interview_age) |>
+  # remove ages less than 8 and more than 16
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age))
+
+# create baseline age column for longComBat
+baseline_ages <- thickness %>%
+  mutate(baseline_age = interview_age / 12) %>%
+  group_by(src_subject_id) %>%
+  mutate(baseline_age = first(baseline_age)) %>%
+  pull(baseline_age)
+
+# removed single NA race and intersex individuals (3)
+thickness <- thickness %>%
+  mutate(baseline_age = baseline_ages) %>%
+  filter(sex != "Intersex-Male") %>%
+  filter(!is.na(race_ethnicity))
+```
+
+``` {r}
+thickness %>%
+  ggplot(aes(x = smri_thick_cdk_banksstslh, y = smri_thick_cdk_cdacatelh, color = site_id_l)) +
+  geom_point() +
+  theme_classic()
+```
+```{r}
+simdata_combat <- longCombat(idvar='src_subject_id', 
+                             timevar='interview_age',
+                             batchvar='site_id_l', 
+                             features=list_of_ct_regions, 
+                             formula='sex + baseline_age',
+                             ranef='(1|src_subject_id)',
+                             data=thickness)
+```
+```{r}
+thickness_harmonized <- simdata_combat$data_combat
+
+thickness_plus_harmonized <- merge(thickness, thickness_harmonized, by=c('src_subject_id', "interview_age"))
+```
+
+```{r}
+par(mfrow = c(1, 2))
+boxplot_before_combat <- batchBoxplot(idvar='src_subject_id', 
+                                      batchvar='site_id_l', 
+                                      feature='smri_thick_cdk_mean', 
+                                      formula='sex + baseline_age',
+                                      ranef='(1|src_subject_id)',
+                                      data=thickness,
+                                      main = "Left plot")
+
+boxplot_after_combat <- batchBoxplot(idvar='src_subject_id', 
+                                     batchvar='site_id_l.y', 
+                                     feature='smri_thick_cdk_mean.combat', 
+                                     formula='sex + baseline_age',
+                                     ranef='(1|src_subject_id)',
+                                     data=thickness_plus_harmonized,
+                                     main = "Right plot")
+```
+
+```{r}
+
+list_of_ct_regions <- colnames(cortical_thickness)[3:ncol(cortical_thickness)] # this is important
+
+residuals_list <- list()
+
+for (i in 1:71) {
+  form <- as.formula(paste0(list_of_ct_regions[i], "~interview_age + demo_sex_v2 + AnyDD_ever_p_y + (1|src_subject_id)"))
+  residuals_list[[i]] <- residuals(lmer(form, data = data))
+}                    
+
+residuals_df <- do.call(cbind.data.frame, residuals_list) %>% clean_names()
+colnames(residuals_df) <- paste0(list_of_ct_regions, "_residuals")
+
+complete_data <- data %>% drop_na(interview_age, demo_sex_v2, AnyDD_ever_p_y)
+complete_data <- cbind(complete_data, residuals_df)
+
+for_plot <- complete_data %>% 
+  select(src_subject_id, eventname, mri_info_manufacturer, site_id_l, contains("residuals")) %>%
+  pivot_longer(cols = ends_with("_residuals"), names_to = "region", values_to = "residual")
+
+for_plot %>%
+  mutate(region = str_remove(region, "smri_thick_cdk_"),
+         region = str_remove(region, "_residuals")) %>%
+  filter(grepl("^[a-f]", region)) %>%
+  ggplot(aes(y = residual, color = mri_info_manufacturer)) +
+  geom_boxplot() +
+  theme_classic() +
+  facet_wrap(~region, scales = "free_y")
+
+
+avg_resid_by_mri_type <- for_plot %>%
+  group_by(mri_info_manufacturer, region) %>%
+  summarize(mean_resid = mean(residual)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = mri_info_manufacturer, values_from = mean_resid) %>%
+  clean_names() %>%
+  summarise(mean(ge_medical_systems), mean(philips_medical_systems), mean(siemens)) %>% 
+  pivot_longer(cols = everything(), values_to = "Average Residual", names_to = "MRI Type") %>%
+  mutate(`MRI Type` = str_remove(`MRI Type`, "mean"))
+
+
+top_10 <- for_plot %>%
+  group_by(mri_info_manufacturer, region) %>%
+  summarize(mean_resid = mean(residual)) %>%
+  mutate(region = str_remove(region, "smri_thick_cdk_"),
+         region = str_remove(region, "_residuals")) %>%
+  ungroup() %>%
+  #mutate(across(3, ~abs(.x))) %>%
+  arrange(desc(mean_resid))  %>%
+  head()
+
+bottom_10 <- for_plot %>%
+  group_by(mri_info_manufacturer, region) %>%
+  summarize(mean_resid = mean(residual)) %>%
+  mutate(region = str_remove(region, "smri_thick_cdk_"),
+         region = str_remove(region, "_residuals")) %>%
+  ungroup() %>%
+  #mutate(across(3, ~abs(.x))) %>%
+  arrange((mean_resid)) %>%
+  head()
+
+bad_regions <- unique(c(bottom_10$region, top_10$region))
+
+bad_regions_plotted <- for_plot %>%
+  mutate(region = str_remove(region, "smri_thick_cdk_"),
+         region = str_remove(region, "_residuals")) %>%
+  filter(region %in% bad_regions) %>%
+  ggplot(aes(y = residual, color = mri_info_manufacturer)) +
+  geom_boxplot(outliers = F) +
+  geom_hline(yintercept = 0, linetype = 2)+
+  theme_classic() +
+  facet_wrap(~region, scales = "free_y")  
+```
+
+```{r}
+
+# NOTE: TIDYVERSE CANNOT BE LOADED AT THE SAME TIME
+detach("package:tidyverse", unload=TRUE)
+
+#library(devtools)
+#devtools::install_github("jcbeer/longCombat")
+library(longCombat)
+
+# testing for batch effects before combat
+boxplot_before_combat <- batchBoxplot(idvar='src_subject_id', 
+                                      batchvar='mri_info_manufacturer', 
+                                      feature='smri_thick_cdk_locclh', 
+                                      formula='interview_age + AnyDD_ever_p_y*interview_age',
+                                      ranef='(1|src_subject_id)',
+                                      data=complete_data,
+                                      main = "Left plot")
+
+batchBoxplot(idvar='src_subject_id', 
+             batchvar='site_id_l', 
+             feature='smri_thick_cdk_tmpolerh', 
+             formula='interview_age + AnyDD_ever_p_y*interview_age',
+             ranef='(1|src_subject_id)',
+             data=complete_data)
+
+addTestTable <- addTest(idvar='src_subject_id', 
+                        batchvar='mri_info_manufacturer', 
+                        features=list_of_ct_regions, 
+                        formula='interview_age + AnyDD_ever_p_y*interview_age',
+                        ranef='(1|src_subject_id)',
+                        data=complete_data)
+
+multTestTable <- multTest(idvar='src_subject_id', 
+                          batchvar='mri_info_manufacturer', 
+                          features=list_of_ct_regions, 
+                          formula='interview_age + AnyDD_ever_p_y*interview_age', ## change this function to match other parameters
+                          ranef='(1|src_subject_id)',
+                          data=complete_data)
+
+# applying combat
+data_for_combat <- complete_data %>%
+  select(src_subject_id, eventname, site_id_l,interview_age, demo_sex_v2, baseline_age, site_id_l, starts_with("smri"))
+
+# <- longCombat(idvar='src_subject_id', ### stays the same
+#            timevar=' ',  ### interview_age and or eventName work for this
+#            batchvar=' ', ### site_id
+#            features=list_of_ct_regions, ### things we want to harmonize
+#            formula='demo_sex_v2 + baseline_age', ### You will have to create the baseline age on your own :(
+#            ranef='(1|src_subject_id)', ### no change
+#            data=data_for_combat)
+
+## this tries to implement Ellerys changes
+simdata_combat <- longCombat(idvar='src_subject_id', 
+                             timevar='interview_age',
+                             batchvar='site_id_l', 
+                             features=list_of_ct_regions, 
+                             formula='demo_sex_v2 + baseline_age',
+                             ranef='(1|src_subject_id)',
+                             data=data_for_combat)
+
+
+data_harmonized <- simdata_combat$data_combat
+
+# save combat feature names
+featurenames.combat <- names(data_harmonized)[4:74]
+# merge with original dataframe
+View(data_harmonized)
+View(complete_data)
+## find the data that you want and dont need and adjust the code below accordingly
+## this data has rows that are the duplicates check if that matters or
+complete_data_plus_combat <- merge(complete_data, data_harmonized, by=c('src_subject_id', "interview_age"))
+
+
+# testing for batch effects after combat
+addTestTableCombat <- addTest(idvar='src_subject_id', 
+                              batchvar='site_id_l', 
+                              features=featurenames.combat, 
+                              formula='demo_sex_v2 + baseline_age',
+                              ranef='(1|src_subject_id)',
+                              data=complete_data_plus_combat)
+
+boxplot_after_combat <- batchBoxplot(idvar='src_subject_id', 
+                                     batchvar='site_id_l.x', 
+                                     feature='smri_thick_cdk_locclh.combat', 
+                                     formula='demo_sex_v2 + baseline_age',
+                                     ranef='(1|src_subject_id)',
+                                     data=complete_data_plus_combat,
+                                     main = "Right plot")
+
+# boxplot_comparison <- plot_grid(boxplot_before_combat, boxplot_after_combat)
+# 
+# boxplot_before_combat + boxplot_after_combat
+
+par(mfrow = c(1, 2))
+boxplot_before_combat <- batchBoxplot(idvar='src_subject_id', 
+                                      batchvar='site_id_l', 
+                                      feature='smri_thick_cdk_locclh', 
+                                      formula='demo_sex_v2 + baseline_age',
+                                      ranef='(1|src_subject_id)',
+                                      data=complete_data,
+                                      main = "Left plot")
+
+boxplot_after_combat <- batchBoxplot(idvar='src_subject_id', 
+                                     batchvar='site_id_l.x', 
+                                     feature='smri_thick_cdk_locclh.combat', 
+                                     formula='demo_sex_v2 + baseline_age',
+                                     ranef='(1|src_subject_id)',
+                                     data=complete_data_plus_combat,
+                                     main = "Right plot")
+```
+

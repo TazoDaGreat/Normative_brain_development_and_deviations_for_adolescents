@@ -66,7 +66,7 @@ demog_clean <- demog |>
 ```{r}
 
 # full dataset
-thickness <- dat.mri |>
+thickness <- dat.mri.ct |>
   full_join(dat.mri.area, by = join_by("eventname", "src_subject_id")) |>
   # join mri data to demographics
   right_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>

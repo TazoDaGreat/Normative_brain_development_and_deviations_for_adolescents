@@ -4,6 +4,7 @@ author: Jeffrey Choi
 output: html_document
 ---
 
+Data preproccessing
 ```{r}
 #| warning: false
 
@@ -92,6 +93,7 @@ thickness %>%
   geom_point() +
   theme_classic()
 ```
+Implements longComBat
 ```{r}
 simdata_combat <- longCombat(idvar='src_subject_id', 
                              timevar='interview_age',
@@ -107,6 +109,7 @@ thickness_harmonized <- simdata_combat$data_combat
 thickness_plus_harmonized <- merge(thickness, thickness_harmonized, by=c('src_subject_id', "interview_age"))
 ```
 
+Box Plot distributions before and after harmonization (mean corticol thickness)
 ```{r}
 thickness_site_plot <- thickness %>% 
   ggplot(aes(x = site_id_l, y = smri_thick_cdk_mean)) +
@@ -135,7 +138,7 @@ thickness_site_plot_harm <- thickness_harmonized %>%
 thickness_site_plot + thickness_site_plot_harm
 ```
 
-
+longComBat provided Box Plots of residuals
 ```{r}
 par(mfrow = c(1, 2))
 boxplot_before_combat <- batchBoxplot(idvar='src_subject_id', 
@@ -154,3 +157,82 @@ boxplot_after_combat <- batchBoxplot(idvar='src_subject_id',
                                      data=thickness_plus_harmonized,
                                      main = "Right plot")
 ```
+
+```{r}
+# plot spaghetti plots of thickness
+thickness %>%
+  ggplot(aes(x = interview_age, y = smri_thick_cdk_mean, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Corticol Thickness Over Time",
+    y = "Corticol Thickness (mm)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of thickness on sex
+thickness %>%
+  mutate(sex = ifelse(sex == 1, "Female", "Male")) %>%
+  ggplot(aes(x = interview_age, y = smri_thick_cdk_mean, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Corticol Thickness Over Time",
+    y = "Corticol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# plot spaghetti plots of thickness (longCombat)
+thickness_plus_harmonized %>%
+  ggplot(aes(x = interview_age, y = smri_thick_cdk_mean.combat, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (Years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Corticol Thickness Over Time",
+    subtitle = "longComBat Harmonized",
+    y = "Corticol Thickness (mm)"
+  ) +
+  theme_minimal()
+
+# plot spaghetti plots of thickness on sex
+thickness_plus_harmonized %>%
+  mutate(sex = ifelse(sex == 1, "Female", "Male")) %>%
+  ggplot(aes(x = interview_age, y = smri_thick_cdk_mean.combat, group = src_subject_id)) + 
+  geom_line(color="azure3", alpha=0.2) + 
+  geom_point(color="azure3", alpha = 0.2) +
+  scale_x_continuous(
+    name = "Age (years)",
+    breaks = seq(96, 192, by = 12),
+    labels = function(x) x / 12
+  ) +
+  labs(
+    title = "Individual Corticol Thickness Over Time",
+    subtitle = "longComBat Harmonized",
+    y = "Corticol Thickness (mm)"
+  ) +
+  theme_minimal() + facet_grid(. ~ sex) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+
+Beginning model distribution search

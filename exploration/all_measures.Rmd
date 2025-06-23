@@ -87,6 +87,7 @@ get_name <- function(dk_abv_to_names, abv){
   (dk_abv_to_names %>% filter(var_name == abv))$region
 }
 
+# example
 get_name(dk_abv_to_names, abv = "cdacatelh")
 ```
 
@@ -133,6 +134,7 @@ avg_thickness <- avg_thickness %>% rename_with(~ new_names)
 ```
 
 ```{r}
+# pivot wide to get regions as values not as feature names
 avg_thickness_wide <- avg_thickness %>%
   pivot_longer(cols = 3:70, names_to = "region", values_to = "thickness") %>%
   mutate(hemi = case_when(
@@ -142,8 +144,43 @@ avg_thickness_wide <- avg_thickness %>%
   mutate(region = sub("_rh", "", region))
 ```
 
-
+Manually changes a single region to check if the model works
 ```{r}
+avg_thickness_wide <- avg_thickness_wide %>%
+  mutate(
+    thickness = case_when(
+      sex == "Male" &
+      eventname == "baseline_year_1_arm_1" &
+      hemi == "left" &
+      region == "bankssts" ~ 5, #value
+      TRUE ~ thickness
+    )
+  )
+
+```
+
+Baseline average corical thickness by region
+```{r}
+# brain plots with ggseg
+avg_thickness_wide %>%
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  group_by(sex) %>%
+  ggplot() +
+  geom_brain(atlas = dk,
+             position = position_brain(hemi ~ side),
+             mapping = aes(fill = thickness)) +
+  facet_wrap(~sex) +
+  scale_fill_gradientn(
+    name = "Cortical Thickness (mm)", 
+    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+  ) +
+  theme_void()
+
+```
+
+Year 2 average corical thickness by region
+```{r}
+# brain plots with ggseg
 avg_thickness_wide %>%
   filter(eventname == "2_year_follow_up_y_arm_1") %>%
   group_by(sex) %>%
@@ -154,11 +191,28 @@ avg_thickness_wide %>%
   facet_wrap(~sex) +
   scale_fill_gradientn(
     name = "Cortical Thickness (mm)", 
-    colors = hcl.colors(10, "purple-yellow"), 
+    colors = hcl.colors(10, "purple-yellow"), # use this to change color
   ) +
   theme_void()
 
 ```
+Year 2 average corical thickness by region
+```{r}
+# brain plots with ggseg
+avg_thickness_wide %>%
+  filter(eventname == "4_year_follow_up_y_arm_1") %>%
+  group_by(sex) %>%
+  ggplot() +
+  geom_brain(atlas = dk,
+             position = position_brain(hemi ~ side),
+             mapping = aes(fill = thickness)) +
+  facet_wrap(~sex) +
+  scale_fill_gradientn(
+    name = "Cortical Thickness (mm)", 
+    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+  ) +
+  theme_void()
 
+```
 
 

@@ -32,7 +32,8 @@ demog_clean <- demog |>
   group_by(src_subject_id) %>%
   mutate(
     race_ethnicity = first(na.omit(race_ethnicity)),
-    demo_sex_v2 = first(na.omit(demo_sex_v2))
+    demo_sex_v2 = first(na.omit(demo_sex_v2)),
+    src_subject_id = factor(src_subject_id)
   ) %>%
   ungroup() %>%
   filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
@@ -107,6 +108,8 @@ simdata_combat <- longCombat(idvar='src_subject_id',
 thickness_harmonized <- simdata_combat$data_combat
 
 thickness_plus_harmonized <- merge(thickness, thickness_harmonized, by=c('src_subject_id', "interview_age"))
+
+thickness_plus_harmonized <- thickness_plus_harmonized %>% mutate(src_subject_id = factor(src_subject_id))
 ```
 
 Box Plot distributions before and after harmonization (mean corticol thickness)
@@ -236,3 +239,53 @@ thickness_plus_harmonized %>%
 ```
 
 Beginning model distribution search
+```{r}
+# WHAT DOES THIS DO 
+lms_model <- lms(smri_thick_cdk_mean.combat, 
+                 interview_age, 
+                 data = thickness_plus_harmonized, 
+                 trans.x = TRUE, 
+                 k = 2)
+
+# grabs degrees of freedom
+lms_mu.nl.df <- lms_model$mu.nl.df
+lms_sigma.nl.df <- lms_model$sigma.nl.df
+lms_tau.nl.df <- lms_model$tau.nl.df
+lms_nu.nl.df <- lms_model$nu.nl.df
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model1 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_plus_harmonized)
+```
+
+```{r}
+#| warning: false
+
+summary(thickness_model1)
+
+fitted_centiles_legend(
+  thickness_model1,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_plus_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model1,
+  xvar = thickness$interview_age), 3)
+
+wp(thickness_model1, xvar = thickness$interview_age)
+```

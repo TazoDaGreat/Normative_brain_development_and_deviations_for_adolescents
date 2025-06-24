@@ -140,13 +140,6 @@ thickness <- thickness %>%
   filter(!is.na(race_ethnicity))
 ```
 
-```{r}
-thickness %>%
-  filter(if_any(everything(), is.na)) %>%
-  select(src_subject_id)
-
-```
-
 
 ```{r}
 # WHAT DOES THIS DO 
@@ -218,6 +211,7 @@ Bayesian Information Criterion:
 $$
 \text{BIC} = -2 \log L + \log(n) \cdot \text{df}
 $$
+
 ```{r}
 GAIC(thickness_model1, k = log(nrow(thickness)))
 ```

@@ -107,6 +107,8 @@ simdata_combat <- longCombat(idvar='src_subject_id',
 ```{r}
 thickness_harmonized <- simdata_combat$data_combat
 
+thickness_harmonized <- thickness_harmonized %>% mutate(src_subject_id = factor(src_subject_id))
+
 thickness_plus_harmonized <- merge(thickness, thickness_harmonized, by=c('src_subject_id', "interview_age"))
 
 thickness_plus_harmonized <- thickness_plus_harmonized %>% mutate(src_subject_id = factor(src_subject_id))
@@ -239,11 +241,13 @@ thickness_plus_harmonized %>%
 ```
 
 Beginning model distribution search
+
+## Model 1 - family: Box-Cox t
 ```{r}
 # WHAT DOES THIS DO 
 lms_model <- lms(smri_thick_cdk_mean.combat, 
                  interview_age, 
-                 data = thickness_plus_harmonized, 
+                 data = thickness_harmonized, 
                  trans.x = TRUE, 
                  k = 2)
 
@@ -267,9 +271,10 @@ thickness_model1 <- gamlss(
                sigma.link = "log", # to stay positive
                nu.link = "identity", 
                tau.link = "identity"), 
-  data = thickness_plus_harmonized)
+  data = thickness_harmonized)
 ```
 
+## Model 1 Statistics - family: Box-Cox t
 ```{r}
 #| warning: false
 
@@ -278,14 +283,361 @@ summary(thickness_model1)
 fitted_centiles_legend(
   thickness_model1,
   cent = c(2.5, 50, 97.5),
-  xvar = thickness_plus_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
   labs(x = "Interview Age (Months)",
        y = "Cortical Thickness (mm)") +
   theme_minimal()
 
 round(Q.stats(
   thickness_model1,
-  xvar = thickness$interview_age), 3)
+  xvar = thickness_harmonized$interview_age), 3)
 
-wp(thickness_model1, xvar = thickness$interview_age)
+wp(thickness_model1, xvar = thickness_harmonized$interview_age)
+```
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model1)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model1, k = log(nrow(thickness_harmonized)))
+
+```
+
+
+
+
+
+
+## Model 2 - family: Box-Cox t original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model2 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+## Model 2 Statistics - family: Box-Cox t original
+```{r}
+#| warning: false
+
+summary(thickness_model2)
+
+fitted_centiles_legend(
+  thickness_model2,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model2,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model2, xvar = thickness_harmonized$interview_age)
+```
+
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model2)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model2, k = log(nrow(thickness_harmonized)))
+```
+
+
+## Model 3 - family: Box-Cox power exp. original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model3 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 3 Statistics - family: Box-Cox power exp. original
+```{r}
+#| warning: false
+
+summary(thickness_model3)
+
+fitted_centiles_legend(
+  thickness_model3,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model3,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model3, xvar = thickness_harmonized$interview_age)
+```
+
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model3)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model3, k = log(nrow(thickness_harmonized)))
+```
+
+## Model 4 - family: Box-Cox power exp
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model4 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 4 Statistics - family: Box-Cox power exp.
+```{r}
+#| warning: false
+
+summary(thickness_model4)
+
+fitted_centiles_legend(
+  thickness_model4,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model4,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model4, xvar = thickness_harmonized$interview_age)
+```
+
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model4)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model4, k = log(nrow(thickness_harmonized)))
+```
+
+## Model 5 - family: Box-Cox t (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model5 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 5 Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model5)
+
+fitted_centiles_legend(
+  thickness_model5,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model5,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model5, xvar = thickness_harmonized$interview_age)
+```
+
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model5)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
+```
+## Model 6 - family: Box-Cox t original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model6 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+## Model 6 Statistics - family: Box-Cox t original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model6)
+
+fitted_centiles_legend(
+  thickness_model6,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model6,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model6, xvar = thickness_harmonized$interview_age)
+```
+
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model6)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model6, k = log(nrow(thickness_harmonized)))
+```
+
+## Model 7 - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model7 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 7 Statistics - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model7)
+
+fitted_centiles_legend(
+  thickness_model7,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model7,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model7, xvar = thickness_harmonized$interview_age)
+```
+
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model7)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model7, k = log(nrow(thickness_harmonized)))
+```
+
+## Model 8 - family: Box-Cox power exp (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model8 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 8 Statistics - family: Box-Cox power exp. (power transformation of predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model8)
+
+fitted_centiles_legend(
+  thickness_model8,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model8,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model8, xvar = thickness_harmonized$interview_age)
+```
+
+```{r}
+print("Generalized A (powerkaike Information Criterion:")
+GAIC(thickness_model8)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model8, k = log(nrow(thickness_harmonized)))
 ```

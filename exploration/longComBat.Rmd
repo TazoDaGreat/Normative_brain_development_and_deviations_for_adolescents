@@ -101,7 +101,7 @@ simdata_combat <- longCombat(idvar='src_subject_id',
                              batchvar='site_id_l', 
                              features=list_of_ct_regions, 
                              formula='sex + baseline_age',
-                             ranef='(1|src_subject_id)',
+                             ranef='(1|src_subject_id)', # random individual effect intercept
                              data=thickness)
 ```
 ```{r}
@@ -290,7 +290,8 @@ fitted_centiles_legend(
 
 round(Q.stats(
   thickness_model1,
-  xvar = thickness_harmonized$interview_age), 3)
+  xvar = thickness_harmonized$interview_age,
+  zvals = TRUE), 3)
 
 wp(thickness_model1, xvar = thickness_harmonized$interview_age)
 ```
@@ -640,4 +641,128 @@ GAIC(thickness_model8)
 
 print("Bayesian Information Criterion:")
 GAIC(thickness_model8, k = log(nrow(thickness_harmonized)))
+```
+
+
+
+
+
+
+
+
+Model stattistics (GAIC and BIC)
+```{r}
+print("Model 1: Generalized Akaike Information Criterion:")
+GAIC(thickness_model1)
+
+print("Model 2: Generalized Akaike Information Criterion:")
+GAIC(thickness_model2)
+
+print("Model 3: Generalized Akaike Information Criterion:")
+GAIC(thickness_model3)
+
+print("Model 4: Generalized Akaike Information Criterion:")
+GAIC(thickness_model4)
+
+print("Model 5: Generalized Akaike Information Criterion:")
+GAIC(thickness_model5)
+
+print("Model 6: Generalized Akaike Information Criterion:")
+GAIC(thickness_model6)
+
+print("Model 7: Generalized Akaike Information Criterion:")
+GAIC(thickness_model7)
+
+print("Model 8: Generalized Akaike Information Criterion:")
+GAIC(thickness_model8)
+
+
+print("Model 1: Bayesian Information Criterion:")
+GAIC(thickness_model1, k = log(nrow(thickness_harmonized)))
+
+print("Model 2: Bayesian Information Criterion:")
+GAIC(thickness_model2, k = log(nrow(thickness_harmonized)))
+
+print("Model 3: Bayesian Information Criterion:")
+GAIC(thickness_model3, k = log(nrow(thickness_harmonized)))
+
+print("Model 4: Bayesian Information Criterion:")
+GAIC(thickness_model4, k = log(nrow(thickness_harmonized)))
+
+print("Model 5: Bayesian Information Criterion:")
+GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
+
+print("Model 6: Bayesian Information Criterion:")
+GAIC(thickness_model6, k = log(nrow(thickness_harmonized)))
+
+print("Model 7: Bayesian Information Criterion:")
+GAIC(thickness_model7, k = log(nrow(thickness_harmonized)))
+
+print("Model 8: Bayesian Information Criterion:")
+GAIC(thickness_model8, k = log(nrow(thickness_harmonized)))
+```
+
+
+
+Lets look at the find.hyper function to find ideal dfs
+```{r}
+# first quote the gamlss model
+# same as model 1
+quoted_model <- quote(gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = p[1]), 
+  sigma.formula =~ cs(interview_age, df = p[2]),
+  nu.formula =~ cs(interview_age, df = p[3]),
+  tau.formula =~ cs(interview_age, df = p[4]),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized))
+
+
+op <- find.hyper(model = quoted_model, par = c(3,3,3,3), lower = c(0,0,0,0), trace = FALSE)
+```
+
+
+```{r}
+thickness_model_opt <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = op$par[1]), 
+  sigma.formula =~ cs(interview_age, df = op$par[2]),
+  nu.formula =~ cs(interview_age, df = op$par[3]),
+  tau.formula =~ cs(interview_age, df = op$par[4]),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+#| warning: false
+
+summary(thickness_model_opt)
+
+fitted_centiles_legend(
+  thickness_model_opt,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model_opt,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model_opt, xvar = thickness_harmonized$interview_age)
+
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model_opt)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model_opt, k = log(nrow(thickness_harmonized)))
+
 ```

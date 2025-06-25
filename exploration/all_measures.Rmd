@@ -196,7 +196,7 @@ avg_thickness_wide %>%
   theme_void()
 
 ```
-Year 2 average corical thickness by region
+Year 4 average corical thickness by region
 ```{r}
 # brain plots with ggseg
 avg_thickness_wide %>%

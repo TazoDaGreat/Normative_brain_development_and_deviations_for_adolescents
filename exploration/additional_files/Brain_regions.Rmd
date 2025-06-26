@@ -1,0 +1,320 @@
+---
+title: "Brain_regions_modelled"
+output: html_notebook
+---
+
+Data preproccessing
+```{r}
+library(tidyverse)
+library(lmerTest)
+library(janitor)
+library(patchwork)
+
+#| warning: false
+
+# lets work with cortical thickness first
+data_dir <- '~/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core'
+
+setwd(data_dir)
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c(999, 777))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+
+# desikan atlas, cortical thickness
+dat.mri.ct = read.csv('imaging/mri_y_smr_thk_dsk.csv') # this gets the file containing measurements for entorhinal brain region
+
+list_of_ct_regions <- colnames(dat.mri.ct)[3:ncol(dat.mri.ct)] # this is important
+
+# basic cleaning for demographic variables
+demog_clean <- demog |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  # fill in race and sex first (avoid losing demog info due to filtering eventname)
+  group_by(src_subject_id) %>%
+  mutate(
+    race_ethnicity = first(na.omit(race_ethnicity)),
+    demo_sex_v2 = first(na.omit(demo_sex_v2)),
+    src_subject_id = factor(src_subject_id)
+  ) %>%
+  ungroup() %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Intersex-Male" = "3"
+    )) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1"))
+
+thickness <- dat.mri.ct |>
+  # join mri data to demographics
+  left_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>
+  # join to study covariates
+  left_join(study_covars, by = join_by("eventname", "src_subject_id")) |>
+  select(src_subject_id, eventname, starts_with("smri"), age, sex, race_ethnicity 
+         , site_id_l, interview_age) |>
+  # remove ages less than 8 and more than 16
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age))
+
+# create baseline age column for longComBat
+baseline_ages <- thickness %>%
+  mutate(baseline_age = interview_age / 12) %>%
+  group_by(src_subject_id) %>%
+  mutate(baseline_age = first(baseline_age)) %>%
+  pull(baseline_age)
+
+# removed single NA race and intersex individuals (3)
+thickness <- thickness %>%
+  mutate(baseline_age = baseline_ages) %>%
+  filter(sex != "Intersex-Male") %>%
+  filter(!is.na(race_ethnicity))
+```
+
+
+``` {r}
+thickness %>%
+  ggplot(aes(x = smri_thick_cdk_banksstslh, y = smri_thick_cdk_cdacatelh, color = site_id_l)) + 
+  geom_point() +
+  theme_classic()
+```
+Implements longComBat
+```{r}
+detach("package:tidyverse", unload=TRUE)
+
+#library(devtools)
+#devtools::install_github("jcbeer/longCombat")
+library(longCombat)
+
+simdata_combat <- longCombat(idvar='src_subject_id', 
+                             timevar='interview_age',
+                             batchvar='site_id_l', 
+                             features=list_of_ct_regions, 
+                             formula='sex + baseline_age',
+                             ranef='(1|src_subject_id)',
+                             data=thickness)
+```
+```{r}
+thickness_harmonized <- simdata_combat$data_combat
+View(thickness_harmonized)
+thickness_plus_harmonized <- merge(thickness, thickness_harmonized, by=c('src_subject_id', "interview_age"))
+
+thickness_plus_harmonized <- thickness_plus_harmonized %>% mutate(src_subject_id = factor(src_subject_id))
+View(thickness_plus_harmonized)
+```
+
+
+implement model 5 for Cortical thickness in mm of APARC ROI lh-superiorfrontal
+```{r}
+thickness_model5 <- gamlss(
+  smri_thick_cdk_sufrlh.combat ~ pb(interview_age^lms_model$power) + gamlss::random(factor(src_subject_id)), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+View(thickness_model5)
+```
+
+## Model 5 Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model5)
+
+fitted_centiles_legend(
+  thickness_model5,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model5,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model5, xvar = thickness_harmonized$interview_age)
+```
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model5)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
+```
+
+
+ 
+############### new region
+
+implement model 5 for Cortical thickness in mm of APARC ROI lh-superiorparietal
+```{r}
+thickness_model5 <- gamlss(
+  smri_thick_cdk_supllh.combat ~ pb(interview_age^lms_model$power) + gamlss::random(factor(src_subject_id)), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+View(thickness_model5)
+```
+
+## Model 5 Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model5)
+
+fitted_centiles_legend(
+  thickness_model5,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model5,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model5, xvar = thickness_harmonized$interview_age)
+```
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model5)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
+```
+
+
+################ new region
+
+implement model 5 for Cortical thickness in mm of APARC ROI lh-superiorparietal
+```{r}
+thickness_model5 <- gamlss(
+  smri_thick_cdk_insulalh.combat ~ pb(interview_age^lms_model$power) + gamlss::random(factor(src_subject_id)), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+View(thickness_model5)
+```
+
+## Model 5 Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model5)
+
+fitted_centiles_legend(
+  thickness_model5,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model5,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model5, xvar = thickness_harmonized$interview_age)
+```
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model5)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
+```
+
+
+################ new region
+
+implement model 5 for Cortical thickness in mm of APARC ROI rh-inferiorparietal
+```{r}
+thickness_model5 <- gamlss(
+  smri_thick_cdk_ifplrh.combat ~ pb(interview_age^lms_model$power) + gamlss::random(factor(src_subject_id)), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+View(thickness_model5)
+```
+
+## Model 5 Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model5)
+
+fitted_centiles_legend(
+  thickness_model5,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model5,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model5, xvar = thickness_harmonized$interview_age)
+```
+```{r}
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model5)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
+```
+

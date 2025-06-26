@@ -1779,7 +1779,7 @@ print("Model 18: Generalized Akaike Information Criterion:")
 GAIC(thickness_model18_male)
 GAIC(thickness_model18_female)
 
-print("Model 129: Generalized Akaike Information Criterion:")
+print("Model 19: Generalized Akaike Information Criterion:")
 GAIC(thickness_model19_male)
 GAIC(thickness_model19_female)
 
@@ -1960,4 +1960,187 @@ round(Q.stats(
   zvals = TRUE), 3)
 
 wp(thickness_model26_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+Lets also look at race
+
+## Model 27 - family: Box-Cox t (power transformation on predictor)
+```{r}
+thickness_harmonized_male_white <- thickness_harmonized_male %>% filter(race_ethnicity == "White")
+thickness_harmonized_male_black <- thickness_harmonized_male %>% filter(race_ethnicity == "Black")
+thickness_harmonized_male_hispanic <- thickness_harmonized_male %>% filter(race_ethnicity == "Hispanic")
+thickness_harmonized_male_asian <- thickness_harmonized_male %>% filter(race_ethnicity == "Asian")
+thickness_harmonized_male_other <- thickness_harmonized_male %>% filter(race_ethnicity == "Other")
+```
+
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model27_male_white <- gamlss(
+  smri_thick_cdk_lingualrh.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male_white)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model27_male_black <- gamlss(
+  smri_thick_cdk_lingualrh.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male_black)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model27_male_hispanic <- gamlss(
+  smri_thick_cdk_lingualrh.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male_hispanic)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model27_male_asian <- gamlss(
+  smri_thick_cdk_lingualrh.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male_asian)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model27_male_other <- gamlss(
+  smri_thick_cdk_lingualrh.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male_other)
+```
+
+```{r}
+#| warning: false
+
+summary(thickness_model27_male_white)
+
+fitted_centiles_legend(
+  thickness_model27_male_white,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male_white %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model27_male_white,
+  xvar = thickness_harmonized_male_white$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model27_male_white, xvar = thickness_harmonized_male_white$interview_age)
+```
+
+```{r}
+#| warning: false
+
+summary(thickness_model27_male_black)
+
+fitted_centiles_legend(
+  thickness_model27_male_black,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male_black %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model27_male_black,
+  xvar = thickness_harmonized_male_black$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model27_male_black, xvar = thickness_harmonized_male_black$interview_age)
+```
+
+```{r}
+#| warning: false
+
+summary(thickness_model27_male_hispanic)
+
+fitted_centiles_legend(
+  thickness_model27_male_hispanic,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male_hispanic %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model27_male_hispanic,
+  xvar = thickness_harmonized_male_hispanic$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model27_male_hispanic, xvar = thickness_harmonized_male_hispanic$interview_age)
+```
+
+```{r}
+#| warning: false
+
+summary(thickness_model27_male_asian)
+
+fitted_centiles_legend(
+  thickness_model27_male_asian,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male_asian %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model27_male_asian,
+  xvar = thickness_harmonized_male_asian$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model27_male_asian, xvar = thickness_harmonized_male_asian$interview_age)
+```
+
+```{r}
+#| warning: false
+
+summary(thickness_model27_male_other)
+
+fitted_centiles_legend(
+  thickness_model27_male_other,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male_other %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model27_male_other,
+  xvar = thickness_harmonized_male_other$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model27_male_other, xvar = thickness_harmonized_male_other$interview_age)
 ```

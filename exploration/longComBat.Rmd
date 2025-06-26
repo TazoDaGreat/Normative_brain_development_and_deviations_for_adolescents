@@ -740,7 +740,7 @@ thickness_model_opt <- gamlss(
                sigma.link = "log", # to stay positive
                nu.link = "identity", 
                tau.link = "identity"), 
-  data = thickness_harmonized)
+  data = thickness_harmonized %>% filter(sex == 1))
 #| warning: false
 
 summary(thickness_model_opt)
@@ -766,3 +766,51 @@ print("Bayesian Information Criterion:")
 GAIC(thickness_model_opt, k = log(nrow(thickness_harmonized)))
 
 ```
+
+
+```{r}
+thickness_model8 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  # mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age),
+  tau.formula =~ cs(interview_age),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_plus_harmonized %>% filter(sex == 1))
+```
+
+```{r}
+summary(thickness_model8)
+
+fitted_centiles_legend(
+  thickness_model8,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_plus_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model8,
+  xvar = thickness_plus_harmonized$interview_age), 3)
+
+wp(thickness_model8, xvar = thickness_plus_harmonized$interview_age.x)
+
+print("Generalized Akaike Information Criterion:")
+GAIC(thickness_model8)
+
+print("Bayesian Information Criterion:")
+GAIC(thickness_model8, k = log(nrow(thickness_plus_harmonized)))
+```
+
+```{r}
+
+
+fitted(thickness_model8, what = "mu")
+```
+

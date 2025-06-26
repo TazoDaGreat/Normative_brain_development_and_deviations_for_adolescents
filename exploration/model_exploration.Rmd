@@ -1,0 +1,1963 @@
+---
+title: "model_exploration"
+author: Jeffrey Choi
+output: html_document
+---
+Data preproccessing
+```{r}
+#| warning: false
+
+# lets work with cortical thickness first
+data_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/'
+
+setwd(data_dir)
+
+# LOAD DATA
+# Demographic variables and propensity weights
+demog <- read.csv("abcd-general/abcd_p_demo.csv", na.strings = c(999, 777))
+# Age in months, Site ID (ABCD Study Design Variables), Family ID
+study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
+# desikan atlas, cortical thickness
+dat.mri.ct = read.csv('imaging/mri_y_smr_thk_dsk.csv')
+
+list_of_ct_regions <- colnames(dat.mri.ct)[3:ncol(dat.mri.ct)] # this is important
+
+
+# basic cleaning for demographic variables
+demog_clean <- demog |>
+  # select broad demographics
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  # fill in race and sex first (avoid losing demog info due to filtering eventname)
+  group_by(src_subject_id) %>%
+  mutate(
+    race_ethnicity = first(na.omit(race_ethnicity)),
+    demo_sex_v2 = first(na.omit(demo_sex_v2)),
+    src_subject_id = factor(src_subject_id)
+  ) %>%
+  ungroup() %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1")) |>
+  mutate(
+    # clean age variable
+    age = case_when(
+      eventname == "baseline_year_1_arm_1" ~ trunc(demo_brthdat_v2), # remove decimals 
+      eventname %in% c("2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1") ~
+        trunc(demo_brthdat_v2_l)),
+    # broad race/ethnicity categories
+    race_ethnicity = case_match(
+      race_ethnicity,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Hispanic",
+      4 ~ "Asian",
+      5 ~ "Other"
+    ),
+    # recode sex variable
+    sex = factor(demo_sex_v2),
+    sex = fct_recode(
+      sex,
+      "Intersex-Male" = "3"
+    )) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1"))
+
+
+thickness <- dat.mri.ct |>
+  # join mri data to demographics
+  left_join(demog_clean, by = join_by("eventname", "src_subject_id")) |>
+  # join to study covariates
+  left_join(study_covars, by = join_by("eventname", "src_subject_id")) |>
+  select(src_subject_id, eventname, starts_with("smri"), age, sex, race_ethnicity 
+         , site_id_l, interview_age) |>
+  # remove ages less than 8 and more than 16
+  filter(age < 16 & age > 8) |>
+  mutate(interview_age = as.numeric(interview_age))
+
+# create baseline age column for longComBat
+baseline_ages <- thickness %>%
+  mutate(baseline_age = interview_age / 12) %>%
+  group_by(src_subject_id) %>%
+  mutate(baseline_age = first(baseline_age)) %>%
+  pull(baseline_age)
+
+# removed single NA race and intersex individuals (3)
+thickness <- thickness %>%
+  mutate(baseline_age = baseline_ages) %>%
+  filter(sex != "Intersex-Male") %>%
+  filter(!is.na(race_ethnicity))
+```
+
+```{r}
+# detach("package:tidyverse", unload=TRUE)
+library(longCombat)
+
+simdata_combat <- longCombat(idvar='src_subject_id', 
+                             timevar='interview_age',
+                             batchvar='site_id_l', 
+                             features=list_of_ct_regions, 
+                             formula='sex + baseline_age',
+                             ranef='(1|src_subject_id)', # random individual effect intercept
+                             data=thickness)
+```
+
+```{r}
+thickness_harmonized <- simdata_combat$data_combat
+
+thickness_plus_harmonized <- merge(thickness, thickness_harmonized, by=c('src_subject_id', "interview_age", "site_id_l"))
+thickness_plus_harmonized <- thickness_plus_harmonized %>% mutate(src_subject_id = factor(src_subject_id))
+
+# adds sex and other cols
+thickness_harmonized <- thickness_plus_harmonized %>%
+  select(-matches("^smri(?!.*\\.combat$)", perl = TRUE)) %>% 
+  mutate(src_subject_id = factor(src_subject_id))
+```
+
+Changes in distribution
+- dfs from lms function
+- cs on all 4 parameters
+
+## Model 1 - family: Box-Cox t
+```{r}
+# WHAT DOES THIS DO 
+lms_model <- lms(smri_thick_cdk_mean.combat, 
+                 interview_age, 
+                 data = thickness_harmonized, 
+                 trans.x = TRUE, 
+                 k = 2)
+
+# grabs degrees of freedom
+lms_mu.nl.df <- lms_model$mu.nl.df
+lms_sigma.nl.df <- lms_model$sigma.nl.df
+lms_tau.nl.df <- lms_model$tau.nl.df
+lms_nu.nl.df <- lms_model$nu.nl.df
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model1 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 1 Statistics - family: Box-Cox t
+```{r}
+#| warning: false
+
+summary(thickness_model1)
+
+fitted_centiles_legend(
+  thickness_model1,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model1,
+  xvar = thickness_harmonized$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model1, xvar = thickness_harmonized$interview_age)
+```
+
+## Model 2 - family: Box-Cox t original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model2 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 2 Statistics - family: Box-Cox t original
+```{r}
+#| warning: false
+
+summary(thickness_model2)
+
+fitted_centiles_legend(
+  thickness_model2,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model2,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model2, xvar = thickness_harmonized$interview_age)
+```
+
+## Model 3 - family: Box-Cox power exp. original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model3 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 3 Statistics - family: Box-Cox power exp. original
+```{r}
+#| warning: false
+
+summary(thickness_model3)
+
+fitted_centiles_legend(
+  thickness_model3,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model3,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model3, xvar = thickness_harmonized$interview_age)
+```
+
+## Model 4 - family: Box-Cox power exp
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model4 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 4 Statistics - family: Box-Cox power exp.
+```{r}
+#| warning: false
+
+summary(thickness_model4)
+
+fitted_centiles_legend(
+  thickness_model4,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model4,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model4, xvar = thickness_harmonized$interview_age)
+```
+
+Changes in distribution
+- dfs from lms function
+- cs on all 4 parameters
+- power transformation on predictor
+
+
+## Model 5 - family: Box-Cox t (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model5 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 5 Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model5)
+
+fitted_centiles_legend(
+  thickness_model5,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model5,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model5, xvar = thickness_harmonized$interview_age)
+```
+
+## Model 6 - family: Box-Cox t original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model6 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 6 Statistics - family: Box-Cox t original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model6)
+
+fitted_centiles_legend(
+  thickness_model6,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model6,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model6, xvar = thickness_harmonized$interview_age)
+```
+
+## Model 7 - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model7 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 7 Statistics - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model7)
+
+fitted_centiles_legend(
+  thickness_model7,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model7,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model7, xvar = thickness_harmonized$interview_age)
+```
+
+## Model 8 - family: Box-Cox power exp (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model8 <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized)
+```
+
+## Model 8 Statistics - family: Box-Cox power exp. (power transformation of predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model8)
+
+fitted_centiles_legend(
+  thickness_model8,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model8,
+  xvar = thickness_harmonized$interview_age), 3)
+
+wp(thickness_model8, xvar = thickness_harmonized$interview_age)
+```
+
+Changes in distribution
+- dfs from lms function
+- cs on all 4 parameters
+- stratified on sex 
+
+```{r}
+thickness_harmonized_male <- thickness_harmonized %>% filter(sex == 2)
+thickness_harmonized_female <- thickness_harmonized %>% filter(sex == 1)
+
+lms_model_m <- lms(smri_thick_cdk_mean.combat, 
+                 interview_age, 
+                 data = thickness_harmonized_male, 
+                 trans.x = TRUE, 
+                 k = 2)
+
+lms_model_f <- lms(smri_thick_cdk_mean.combat, 
+                 interview_age, 
+                 data = thickness_harmonized_female, 
+                 trans.x = TRUE, 
+                 k = 2)
+
+# grabs degrees of freedom
+lms_mu_m.nl.df <- lms_model_m$mu.nl.df
+lms_sigma_m.nl.df <- lms_model_m$sigma.nl.df
+lms_tau_m.nl.df <- lms_model_m$tau.nl.df
+lms_nu_m.nl.df <- lms_model_m$nu.nl.df
+
+
+lms_mu_f.nl.df <- lms_model_f$mu.nl.df
+lms_sigma_f.nl.df <- lms_model_f$sigma.nl.df
+lms_tau_f.nl.df <- lms_model_f$tau.nl.df
+lms_nu_f.nl.df <- lms_model_f$nu.nl.df
+```
+
+## Model 9 - family: Box-Cox t
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model9_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model9_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 9 Male Statistics - family: Box-Cox t
+```{r}
+#| warning: false
+
+summary(thickness_model9_male)
+
+fitted_centiles_legend(
+  thickness_model9_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model9_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model9_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 9 Female Statistics - family: Box-Cox t
+```{r}
+#| warning: false
+
+summary(thickness_model9_female)
+
+fitted_centiles_legend(
+  thickness_model9_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model9_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model9_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 10 - family: Box-Cox t original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model10_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model10_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 10 Male Statistics - family: Box-Cox t original
+```{r}
+#| warning: false
+
+summary(thickness_model10_male)
+
+fitted_centiles_legend(
+  thickness_model10_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model10_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model10_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 10 Female Statistics - family: Box-Cox t original
+```{r}
+#| warning: false
+
+summary(thickness_model10_female)
+
+fitted_centiles_legend(
+  thickness_model10_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model10_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model10_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 11 - family: Box-Cox power exp. original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model11_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model11_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 11 Male Statistics - family: Box-Cox power exp. original
+```{r}
+#| warning: false
+
+summary(thickness_model11_male)
+
+fitted_centiles_legend(
+  thickness_model11_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model11_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model11_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 11 Female Statistics - family: Box-Cox power exp. original
+```{r}
+#| warning: false
+
+summary(thickness_model11_female)
+
+fitted_centiles_legend(
+  thickness_model11_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model11_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model11_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 12 - family: Box-Cox power exp
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model12_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model12_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 12 Male Statistics - family: Box-Cox power exp.
+```{r}
+#| warning: false
+
+summary(thickness_model12_male)
+
+fitted_centiles_legend(
+  thickness_model12_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model12_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model12_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 12 Female Statistics - family: Box-Cox power exp.
+```{r}
+#| warning: false
+
+summary(thickness_model12_female)
+
+fitted_centiles_legend(
+  thickness_model12_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model12_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model12_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 13 - family: Box-Cox t (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model13_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model13_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 13 Male Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model13_male)
+
+fitted_centiles_legend(
+  thickness_model13_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model13_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model13_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 13 Female Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model13_female)
+
+fitted_centiles_legend(
+  thickness_model13_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model13_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model13_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 14 - family: Box-Cox t original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model14_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model14_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 14 Male Statistics - family: Box-Cox t original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model14_male)
+
+fitted_centiles_legend(
+  thickness_model14_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model14_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model14_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 14 Female Statistics - family: Box-Cox t original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model14_female)
+
+fitted_centiles_legend(
+  thickness_model14_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model14_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model14_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 15 - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model15_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model15_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 15 Male Statistics - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model15_male)
+
+fitted_centiles_legend(
+  thickness_model15_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model15_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model15_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 15 Female Statistics - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model15_female)
+
+fitted_centiles_legend(
+  thickness_model15_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model15_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model15_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 16 - family: Box-Cox power exp (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model16_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model16_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 16 Male Statistics - family: Box-Cox power exp. (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model16_male)
+
+fitted_centiles_legend(
+  thickness_model16_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model16_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model16_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 16 Female Statistics - family: Box-Cox power exp. (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model16_female)
+
+fitted_centiles_legend(
+  thickness_model16_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model16_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model16_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+Changes in distribution
+- default dfs
+- remove spline on mu
+- cs only on sigma
+
+## Model 17 - family: Box-Cox t
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model17_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model17_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 17 Male Statistics - family: Box-Cox t
+```{r}
+#| warning: false
+
+summary(thickness_model17_male)
+
+fitted_centiles_legend(
+  thickness_model17_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model17_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model17_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 17 Female Statistics - family: Box-Cox t
+```{r}
+#| warning: false
+
+summary(thickness_model17_female)
+
+fitted_centiles_legend(
+  thickness_model17_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model17_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model17_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 18 - family: Box-Cox t original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model18_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model18_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 18 Male Statistics - family: Box-Cox t original
+```{r}
+#| warning: false
+
+summary(thickness_model18_male)
+
+fitted_centiles_legend(
+  thickness_model18_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model18_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model18_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 18 Female Statistics - family: Box-Cox t original
+```{r}
+#| warning: false
+
+summary(thickness_model18_female)
+
+fitted_centiles_legend(
+  thickness_model18_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model18_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model18_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 19 - family: Box-Cox power exp. original
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model19_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model19_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 19 Male Statistics - family: Box-Cox power exp. original
+```{r}
+#| warning: false
+
+summary(thickness_model19_male)
+
+fitted_centiles_legend(
+  thickness_model19_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model19_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model19_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 19 Female Statistics - family: Box-Cox power exp. original
+```{r}
+#| warning: false
+
+summary(thickness_model19_female)
+
+fitted_centiles_legend(
+  thickness_model19_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model19_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model19_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 20 - family: Box-Cox power exp
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model20_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model20_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 20 Male Statistics - family: Box-Cox power exp.
+```{r}
+#| warning: false
+
+summary(thickness_model20_male)
+
+fitted_centiles_legend(
+  thickness_model20_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model20_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model20_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 20 Female Statistics - family: Box-Cox power exp.
+```{r}
+#| warning: false
+
+summary(thickness_model20_female)
+
+fitted_centiles_legend(
+  thickness_model20_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model20_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model20_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 21 - family: Box-Cox t (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model21_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model21_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 21 Male Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model21_male)
+
+fitted_centiles_legend(
+  thickness_model21_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model21_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model21_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 21 Female Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model21_female)
+
+fitted_centiles_legend(
+  thickness_model21_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model21_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model21_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 22 - family: Box-Cox t original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model22_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model22_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCTo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 22 Male Statistics - family: Box-Cox t original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model22_male)
+
+fitted_centiles_legend(
+  thickness_model22_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model22_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model22_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 22 Female Statistics - family: Box-Cox t original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model22_female)
+
+fitted_centiles_legend(
+  thickness_model22_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model22_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model22_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 23 - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model23_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model23_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPEo(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 23 Male Statistics - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model23_male)
+
+fitted_centiles_legend(
+  thickness_model23_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model23_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model23_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 23 Female Statistics - family: Box-Cox power exp. original (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model23_female)
+
+fitted_centiles_legend(
+  thickness_model23_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model23_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model23_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+## Model 24 - family: Box-Cox power exp (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model24_male <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model24_female <- gamlss(
+  smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCPE(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 24 Male Statistics - family: Box-Cox power exp. (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model24_male)
+
+fitted_centiles_legend(
+  thickness_model24_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model24_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model24_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+## Model 24 Female Statistics - family: Box-Cox power exp. (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model24_female)
+
+fitted_centiles_legend(
+  thickness_model24_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model24_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model24_female, xvar = thickness_harmonized_female$interview_age)
+```
+
+
+
+# Model statistics (GAIC and BIC)
+```{r}
+print("Model 1: Generalized Akaike Information Criterion:")
+GAIC(thickness_model1)
+
+print("Model 2: Generalized Akaike Information Criterion:")
+GAIC(thickness_model2)
+
+print("Model 3: Generalized Akaike Information Criterion:")
+GAIC(thickness_model3)
+
+print("Model 4: Generalized Akaike Information Criterion:")
+GAIC(thickness_model4)
+
+print("Model 5: Generalized Akaike Information Criterion:")
+GAIC(thickness_model5)
+
+print("Model 6: Generalized Akaike Information Criterion:")
+GAIC(thickness_model6)
+
+print("Model 7: Generalized Akaike Information Criterion:")
+GAIC(thickness_model7)
+
+print("Model 8: Generalized Akaike Information Criterion:")
+GAIC(thickness_model8)
+
+print("Model 9: Generalized Akaike Information Criterion:")
+GAIC(thickness_model9_male)
+GAIC(thickness_model9_female)
+
+print("Model 10: Generalized Akaike Information Criterion:")
+GAIC(thickness_model10_male)
+GAIC(thickness_model10_female)
+
+print("Model 11: Generalized Akaike Information Criterion:")
+GAIC(thickness_model11_male)
+GAIC(thickness_model11_female)
+
+print("Model 12: Generalized Akaike Information Criterion:")
+GAIC(thickness_model12_male)
+GAIC(thickness_model12_female)
+
+print("Model 13: Generalized Akaike Information Criterion:")
+GAIC(thickness_model13_male)
+GAIC(thickness_model13_female)
+
+print("Model 14: Generalized Akaike Information Criterion:")
+GAIC(thickness_model14_male)
+GAIC(thickness_model14_female)
+
+print("Model 15: Generalized Akaike Information Criterion:")
+GAIC(thickness_model15_male)
+GAIC(thickness_model15_female)
+
+print("Model 16: Generalized Akaike Information Criterion:")
+GAIC(thickness_model16_male)
+GAIC(thickness_model16_female)
+
+print("Model 17: Generalized Akaike Information Criterion:")
+GAIC(thickness_model17_male)
+GAIC(thickness_model17_female)
+
+print("Model 18: Generalized Akaike Information Criterion:")
+GAIC(thickness_model18_male)
+GAIC(thickness_model18_female)
+
+print("Model 129: Generalized Akaike Information Criterion:")
+GAIC(thickness_model19_male)
+GAIC(thickness_model19_female)
+
+print("Model 20: Generalized Akaike Information Criterion:")
+GAIC(thickness_model20_male)
+GAIC(thickness_model20_female)
+
+print("Model 21: Generalized Akaike Information Criterion:")
+GAIC(thickness_model21_male)
+GAIC(thickness_model21_female)
+
+print("Model 22: Generalized Akaike Information Criterion:")
+GAIC(thickness_model22_male)
+GAIC(thickness_model22_female)
+
+print("Model 23: Generalized Akaike Information Criterion:")
+GAIC(thickness_model23_male)
+GAIC(thickness_model23_female)
+
+print("Model 24: Generalized Akaike Information Criterion:")
+GAIC(thickness_model24_male)
+GAIC(thickness_model24_female)
+
+
+print("Model 1: Bayesian Information Criterion:")
+GAIC(thickness_model1, k = log(nrow(thickness_harmonized)))
+
+print("Model 2: Bayesian Information Criterion:")
+GAIC(thickness_model2, k = log(nrow(thickness_harmonized)))
+
+print("Model 3: Bayesian Information Criterion:")
+GAIC(thickness_model3, k = log(nrow(thickness_harmonized)))
+
+print("Model 4: Bayesian Information Criterion:")
+GAIC(thickness_model4, k = log(nrow(thickness_harmonized)))
+
+print("Model 5: Bayesian Information Criterion:")
+GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
+
+print("Model 6: Bayesian Information Criterion:")
+GAIC(thickness_model6, k = log(nrow(thickness_harmonized)))
+
+print("Model 7: Bayesian Information Criterion:")
+GAIC(thickness_model7, k = log(nrow(thickness_harmonized)))
+
+print("Model 8: Bayesian Information Criterion:")
+GAIC(thickness_model8, k = log(nrow(thickness_harmonized)))
+```
+Selecting Model 21 based on stratified sex outcomes, worm plots, GAIC score, and not significant p-values for parameters.
+
+Now lets look at other regions of the brain
+
+# Cortical thickness in mm of APARC ROI lh-frontalpole
+smri_thick_cdk_tmpolelh
+
+## Model 25 - family: Box-Cox t (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model25_male <- gamlss(
+  smri_thick_cdk_tmpolelh.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model25_female <- gamlss(
+  smri_thick_cdk_tmpolelh.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 25 Male Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model25_male)
+
+fitted_centiles_legend(
+  thickness_model25_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model25_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model25_male, xvar = thickness_harmonized_male$interview_age)
+```
+
+
+# Cortical thickness in mm of APARC ROI rh-lingual
+smri_thick_cdk_lingualrh
+
+## Model 26 - family: Box-Cox t (power transformation on predictor)
+```{r}
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model26_male <- gamlss(
+  smri_thick_cdk_lingualrh.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_male)
+
+# initial model for average thickness using gamlss
+# P-spline smoothing functions
+thickness_model26_female <- gamlss(
+  smri_thick_cdk_lingualrh.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
+  # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
+  sigma.formula =~ cs(interview_age),
+  
+  family = BCT(mu.link = "log", # to stay positive
+               sigma.link = "log", # to stay positive
+               nu.link = "identity", 
+               tau.link = "identity"), 
+  data = thickness_harmonized_female)
+```
+
+## Model 26 Male Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model26_male)
+
+fitted_centiles_legend(
+  thickness_model26_male,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_male %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model26_male,
+  xvar = thickness_harmonized_male$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model26_male, xvar = thickness_harmonized_male$interview_age)
+```
+## Model 26 Female Statistics - family: Box-Cox t (power transformation on predictor)
+```{r}
+#| warning: false
+
+summary(thickness_model26_female)
+
+fitted_centiles_legend(
+  thickness_model26_female,
+  cent = c(2.5, 50, 97.5),
+  xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
+  labs(x = "Interview Age (Months)",
+       y = "Cortical Thickness (mm)") +
+  theme_minimal()
+
+round(Q.stats(
+  thickness_model26_female,
+  xvar = thickness_harmonized_female$interview_age,
+  zvals = TRUE), 3)
+
+wp(thickness_model26_female, xvar = thickness_harmonized_female$interview_age)
+```

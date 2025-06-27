@@ -500,6 +500,7 @@ GAIC(thickness_model5)
 print("Bayesian Information Criterion:")
 GAIC(thickness_model5, k = log(nrow(thickness_harmonized)))
 ```
+
 ## Model 6 - family: Box-Cox t original (power transformation on predictor)
 ```{r}
 # initial model for average thickness using gamlss
@@ -701,7 +702,6 @@ GAIC(thickness_model7, k = log(nrow(thickness_harmonized)))
 print("Model 8: Bayesian Information Criterion:")
 GAIC(thickness_model8, k = log(nrow(thickness_harmonized)))
 ```
-
 
 
 Lets look at the find.hyper function to find ideal dfs

@@ -25,8 +25,7 @@ study_covars <- read.csv("abcd-general/abcd_y_lt.csv")
 dat.mri.ct = read.csv('imaging/mri_y_smr_thk_dsk.csv') %>%
   select(src_subject_id, eventname, smri_thick_cdk_mean)
 # desikan atlas, total cortical surface area in mm^2 for whole brain
-dat.mri.area = read.csv('imaging/mri_y_smr_area_dsk.csv') %>%
-  select(src_subject_id, eventname, smri_area_cdk_total)
+dat.mri.area = read.csv('imaging/mri_y_smr_area_dsk.csv')
 
 ```
 

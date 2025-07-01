@@ -4,6 +4,18 @@ author: Jeffrey Choi
 output: html_document
 ---
 
+
+```{r}
+library(dplyr)
+library(longCombat)
+library(forcats)
+library(gamlss)
+library(gamlss.data)
+library(gamlss.dist)
+library(gamlss.foreach)
+library(gamlss.ggplots)
+```
+
 Data preproccessing
 ```{r}
 #| warning: false
@@ -89,7 +101,10 @@ thickness <- thickness %>%
 ```
 
 ```{r}
-# detach("package:tidyverse", unload=TRUE)
+if("package:tidyverse" %in% search()){
+  detach("package:tidyverse", unload = TRUE)
+}
+
 library(longCombat)
 
 simdata_combat <- longCombat(idvar='src_subject_id', 
@@ -99,6 +114,9 @@ simdata_combat <- longCombat(idvar='src_subject_id',
                              formula='sex + baseline_age',
                              ranef='(1|src_subject_id)', # random individual effect intercept
                              data=thickness)
+```
+```{r}
+library(tidyverse)
 ```
 
 ```{r}
@@ -113,8 +131,14 @@ thickness_harmonized <- thickness_plus_harmonized %>%
   mutate(src_subject_id = factor(src_subject_id))
 
 # groups by sex
-thickness_harmonized_male <- thickness_harmonized %>% filter(sex == 2)
-thickness_harmonized_female <- thickness_harmonized %>% filter(sex == 1)
+# ONLY USE MEAN COL
+thickness_harmonized_male <- thickness_harmonized %>% 
+  filter(sex == 2) %>%
+  select(src_subject_id, interview_age, race_ethnicity, smri_thick_cdk_mean.combat)
+
+thickness_harmonized_female <- thickness_harmonized %>%
+  filter(sex == 1) %>%
+  select(src_subject_id, interview_age, race_ethnicity, smri_thick_cdk_mean.combat)
 
 # used to get power for x transformation
 lms_model_m <- lms(smri_thick_cdk_mean.combat, 
@@ -202,38 +226,91 @@ round(Q.stats(
 ```
 
 ```{r}
-# Collecting centile scores for overall mean
-
-thickness_harmonized_male_newdata <- thickness_harmonized_male %>%
-  select(-site_id_l, -eventname, -age, -sex, -race_ethnicity, -baseline_age)
+# Collecting centile scores for overall mean male
+thickness_harmonized_male_newdata <- thickness_harmonized_male
 
 
 thickness_harmonized_male$mu <- predict(thickness_model21_male,
                                         what = "mu",
-                                        newdata = thickness_harmonized_male_newdata,
+                                        newdata = thickness_harmonized_male,
                                         type = "response")
 
 thickness_harmonized_male$sigma <- predict(thickness_model21_male,
                                            what = "sigma",
-                                           newdata = thickness_harmonized_male_newdata,
+                                           newdata = thickness_harmonized_male,
                                            type = "response")
 
 thickness_harmonized_male$nu <- predict(thickness_model21_male,
                                         what = "nu",
-                                        newdata = thickness_harmonized_male_newdata,
+                                        newdata = thickness_harmonized_male,
                                         type = "response")
 
 thickness_harmonized_male$tau <- predict(thickness_model21_male,
                                         what = "tau",
-                                        newdata = thickness_harmonized_male_newdata,
+                                        newdata = thickness_harmonized_male,
                                         type = "response")
 
-thickness_harmonized_male_newdata$centile <- with(thickness_model21_male,
-                                          pBCT(thickness_harmonized_male_newdata$smri_thick_cdk_mean.combat,
-                                                         mu = thickness_harmonized_male_newdata$mu,
-                                                         sigma = thickness_harmonized_male_newdata$sigma,
-                                                         nu = thickness_harmonized_male_newdata$nu,
-                                                         tau = thickness_harmonized_male_newdata$tau))
+thickness_harmonized_male$centile <- with(thickness_model21_male,
+                                                  pBCT(thickness_harmonized_male$smri_thick_cdk_mean.combat,
+    mu = thickness_harmonized_male$mu,
+    sigma = thickness_harmonized_male$sigma,
+    nu = thickness_harmonized_male$nu,
+    tau = thickness_harmonized_male$tau))
 ```
 
+
+```{r}
+# Collecting centile scores for overall mean female
+thickness_harmonized_female$mu <- predict(thickness_model21_female,
+                                        what = "mu",
+                                        newdata = thickness_harmonized_female,
+                                        type = "response")
+
+thickness_harmonized_female$sigma <- predict(thickness_model21_female,
+                                           what = "sigma",
+                                           newdata = thickness_harmonized_female,
+                                           type = "response")
+
+thickness_harmonized_female$nu <- predict(thickness_model21_female,
+                                        what = "nu",
+                                        newdata = thickness_harmonized_female,
+                                        type = "response")
+
+thickness_harmonized_female$tau <- predict(thickness_model21_female,
+                                        what = "tau",
+                                        newdata = thickness_harmonized_female,
+                                        type = "response")
+
+thickness_harmonized_female$centile <- with(thickness_model21_female,
+                                                    pBCT(thickness_harmonized_female$smri_thick_cdk_mean.combat,
+    mu = thickness_harmonized_female$mu,
+    sigma = thickness_harmonized_female$sigma,
+    nu = thickness_harmonized_female$nu,
+    tau = thickness_harmonized_female$tau))
+```
+
+```{r}
+# adds eventname into df for pivot widering
+thickness_centile_male <- thickness_harmonized_male %>%
+  left_join(thickness_harmonized %>%
+              filter(sex == 2) %>%
+              select(src_subject_id, interview_age, eventname),
+            by = c("src_subject_id", "interview_age"))
+
+thickness_centile_female <- thickness_harmonized_female%>%
+  left_join(thickness_harmonized %>%
+              filter(sex == 1) %>%
+              select(src_subject_id, interview_age, eventname),
+            by = c("src_subject_id", "interview_age"))
+```
+
+```{r}
+thickness_centile_male_wider <- thickness_centile_male %>%
+  select(src_subject_id, eventname, interview_age, centile, race_ethnicity) %>%
+  pivot_wider(names_from = eventname, values_from = c(interview_age, centile))
+
+thickness_centile_female_wider <- thickness_centile_female %>%
+  select(src_subject_id, eventname, interview_age, centile) %>%
+  pivot_wider(names_from = eventname, values_from = c(interview_age, centile))
+```
 

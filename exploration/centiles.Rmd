@@ -294,7 +294,7 @@ thickness_harmonized_female$centile <- with(thickness_model21_female,
 thickness_centile_male <- thickness_harmonized_male %>%
   left_join(thickness_harmonized %>%
               filter(sex == 2) %>%
-              select(src_subject_id, interview_age, eventname),
+              select(src_subject_id, interview_age, eventname, ),
             by = c("src_subject_id", "interview_age"))
 
 thickness_centile_female <- thickness_harmonized_female%>%
@@ -305,12 +305,50 @@ thickness_centile_female <- thickness_harmonized_female%>%
 ```
 
 ```{r}
+rm(thickness_centile_male_wider)
+```
+
+```{r}
 thickness_centile_male_wider <- thickness_centile_male %>%
-  select(src_subject_id, eventname, interview_age, centile, race_ethnicity) %>%
-  pivot_wider(names_from = eventname, values_from = c(interview_age, centile))
+  select(
+    src_subject_id, eventname, interview_age,
+    smri_thick_cdk_mean.combat, centile, race_ethnicity
+  ) %>%
+  pivot_wider(
+    names_from = eventname,
+    values_from = c(interview_age, smri_thick_cdk_mean.combat, centile)
+  ) %>%
+  rename(
+    interview_age_baseline = interview_age_baseline_year_1_arm_1,
+    interview_age_year_2 = interview_age_2_year_follow_up_y_arm_1,
+    interview_age_year_4 = interview_age_4_year_follow_up_y_arm_1,
+    smri_thick_cdk_mean.combat_baseline = smri_thick_cdk_mean.combat_baseline_year_1_arm_1,
+    smri_thick_cdk_mean.combat_year_2 = smri_thick_cdk_mean.combat_2_year_follow_up_y_arm_1,
+    smri_thick_cdk_mean.combat_year_4 = smri_thick_cdk_mean.combat_4_year_follow_up_y_arm_1,
+    centile_baseline = centile_baseline_year_1_arm_1,
+    centile_year_2 = centile_2_year_follow_up_y_arm_1,
+    centile_year_4 = centile_4_year_follow_up_y_arm_1,
+    )
 
 thickness_centile_female_wider <- thickness_centile_female %>%
-  select(src_subject_id, eventname, interview_age, centile) %>%
-  pivot_wider(names_from = eventname, values_from = c(interview_age, centile))
+  select(
+    src_subject_id, eventname, interview_age,
+         smri_thick_cdk_mean.combat, centile, race_ethnicity
+    ) %>%
+  pivot_wider(
+    names_from = eventname,
+    values_from = c(interview_age, smri_thick_cdk_mean.combat, centile)
+    ) %>%
+  rename(
+    interview_age_baseline = interview_age_baseline_year_1_arm_1,
+    interview_age_year_2 = interview_age_2_year_follow_up_y_arm_1,
+    interview_age_year_4 = interview_age_4_year_follow_up_y_arm_1,
+    smri_thick_cdk_mean.combat_baseline = smri_thick_cdk_mean.combat_baseline_year_1_arm_1,
+    smri_thick_cdk_mean.combat_year_2 = smri_thick_cdk_mean.combat_2_year_follow_up_y_arm_1,
+    smri_thick_cdk_mean.combat_year_4 = smri_thick_cdk_mean.combat_4_year_follow_up_y_arm_1,
+    centile_baseline = centile_baseline_year_1_arm_1,
+    centile_year_2 = centile_2_year_follow_up_y_arm_1,
+    centile_year_4 = centile_4_year_follow_up_y_arm_1,
+    )
 ```
 

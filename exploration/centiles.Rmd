@@ -424,7 +424,6 @@ thickness_centile_male_wider %>%
   ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
   geom_bar(position = "stack") +
   labs(title = "Individual Centile Scores by Race",
-       subtitle = time,
        x = "Centile",
        y = "Individual Count")
 ```

@@ -29,19 +29,19 @@ User Input (added by Kelly with the idea that hopefully if this works right, the
 ```{r user-input}
 # Location of "ABCD Standard Data Preparation" Box Directory (on local computer) - if NULL, will assume that the current working dir is the '*/Box/ABCD STUDY/ABCD Standard Data Preparation' directory
 # Note that example below is based on a Mac directory
-data_dir <- '/Users/marenrusk/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/' # UPDATE HERE FOR YOUR FILE PATH
+data_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/' # UPDATE HERE FOR YOUR FILE PATH
 #data_dir <-  '/Users/sarah/Library/CloudStorage/Box-Box/ABCD Tabulated Data/5.1/core/'
 
 # Location of desired output directory of created csv file - if NULL, will output file into current working directory
 #out_dir <- '/Users/sarah/Library/CloudStorage/Box-Box/ABCD-clean' # ['path',NULL]
-out_dir <- '/Users/marenrusk/Library/CloudStorage/Box-Box/ABCD Data'
+out_dir <- '/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Data'
 
 # Date you want used in output name of csv file - if NULL, will use output from Sys.Date() (current date)
 #out_date <- '2023-03-03' # ['date_string',NULL]
 out_date <- NULL
 
 # Initials or other string you want used in output name of csv file - no NULL option here, have to put in some sort of string (though we could create a default for this?)
-out_initials <- 'MSR' # ['initials_string']
+out_initials <- 'JC' # ['initials_string']
 
 # Do you also want to output a wide format data file?
 wide <- TRUE # [TRUE,FALSE]
@@ -656,7 +656,7 @@ if(is.null(out_initials)){
 }
 # Now output file based on name and out_dir given. Recall that if out_dir is NULL, it will write to current wd
 csv_out_name <- paste0(out_dir,'/',out_date,'_',out_initials,'.csv')
-write.csv(abcd_data.selected_time, csv_out_name, row.names = FALSE) 
+#write.csv(abcd_data.selected_time, csv_out_name, row.names = FALSE) 
 
 ```
 
@@ -697,6 +697,9 @@ if(wide){
 
 ```
 
+```{r}
+data <- read.csv("/Users/jeffee/Library/CloudStorage/Box-Box/ABCD Data/2025-07-01_JC.csv")
+```
 
 
 

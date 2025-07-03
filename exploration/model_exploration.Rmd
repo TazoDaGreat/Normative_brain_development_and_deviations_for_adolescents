@@ -497,10 +497,10 @@ lms_nu_f.nl.df <- lms_model_f$nu.nl.df
 thickness_model9_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -513,10 +513,10 @@ thickness_model9_male <- gamlss(
 thickness_model9_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -576,10 +576,10 @@ wp(thickness_model9_female, xvar = thickness_harmonized_female$interview_age)
 thickness_model10_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -592,10 +592,10 @@ thickness_model10_male <- gamlss(
 thickness_model10_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -655,10 +655,10 @@ wp(thickness_model10_female, xvar = thickness_harmonized_female$interview_age)
 thickness_model11_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -671,10 +671,10 @@ thickness_model11_male <- gamlss(
 thickness_model11_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -734,10 +734,10 @@ wp(thickness_model11_female, xvar = thickness_harmonized_female$interview_age)
 thickness_model12_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -750,10 +750,10 @@ thickness_model12_male <- gamlss(
 thickness_model12_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -813,10 +813,10 @@ wp(thickness_model12_female, xvar = thickness_harmonized_female$interview_age)
 thickness_model13_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -829,10 +829,10 @@ thickness_model13_male <- gamlss(
 thickness_model13_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -892,10 +892,10 @@ wp(thickness_model13_female, xvar = thickness_harmonized_female$interview_age)
 thickness_model14_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -908,10 +908,10 @@ thickness_model14_male <- gamlss(
 thickness_model14_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -971,10 +971,10 @@ wp(thickness_model14_female, xvar = thickness_harmonized_female$interview_age)
 thickness_model15_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -987,10 +987,10 @@ thickness_model15_male <- gamlss(
 thickness_model15_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -1050,10 +1050,10 @@ wp(thickness_model15_female, xvar = thickness_harmonized_female$interview_age)
 thickness_model16_male <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -1066,10 +1066,10 @@ thickness_model16_male <- gamlss(
 thickness_model16_female <- gamlss(
   smri_thick_cdk_mean.combat ~ pb(interview_age^lms_model_f$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive

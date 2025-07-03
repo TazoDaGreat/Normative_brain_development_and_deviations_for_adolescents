@@ -229,25 +229,25 @@ round(Q.stats(
 # Collecting centile scores for overall mean male
 thickness_harmonized_male_newdata <- thickness_harmonized_male
 
-
+# having newdata gives an assumption warning? idk just commented it out
 thickness_harmonized_male$mu <- predict(thickness_model21_male,
                                         what = "mu",
-                                        newdata = thickness_harmonized_male,
+                                        #newdata = thickness_harmonized_male,
                                         type = "response")
 
 thickness_harmonized_male$sigma <- predict(thickness_model21_male,
                                            what = "sigma",
-                                           newdata = thickness_harmonized_male,
+                                           #newdata = thickness_harmonized_male,
                                            type = "response")
 
 thickness_harmonized_male$nu <- predict(thickness_model21_male,
                                         what = "nu",
-                                        newdata = thickness_harmonized_male,
+                                        #newdata = thickness_harmonized_male,
                                         type = "response")
 
 thickness_harmonized_male$tau <- predict(thickness_model21_male,
                                         what = "tau",
-                                        newdata = thickness_harmonized_male,
+                                        #newdata = thickness_harmonized_male,
                                         type = "response")
 
 thickness_harmonized_male$centile <- with(thickness_model21_male,
@@ -263,22 +263,22 @@ thickness_harmonized_male$centile <- with(thickness_model21_male,
 # Collecting centile scores for overall mean female
 thickness_harmonized_female$mu <- predict(thickness_model21_female,
                                         what = "mu",
-                                        newdata = thickness_harmonized_female,
+                                        #newdata = thickness_harmonized_female,
                                         type = "response")
 
 thickness_harmonized_female$sigma <- predict(thickness_model21_female,
                                            what = "sigma",
-                                           newdata = thickness_harmonized_female,
+                                           #newdata = thickness_harmonized_female,
                                            type = "response")
 
 thickness_harmonized_female$nu <- predict(thickness_model21_female,
                                         what = "nu",
-                                        newdata = thickness_harmonized_female,
+                                        #newdata = thickness_harmonized_female,
                                         type = "response")
 
 thickness_harmonized_female$tau <- predict(thickness_model21_female,
                                         what = "tau",
-                                        newdata = thickness_harmonized_female,
+                                        #newdata = thickness_harmonized_female,
                                         type = "response")
 
 thickness_harmonized_female$centile <- with(thickness_model21_female,
@@ -302,10 +302,6 @@ thickness_centile_female <- thickness_harmonized_female%>%
               filter(sex == 1) %>%
               select(src_subject_id, interview_age, eventname),
             by = c("src_subject_id", "interview_age"))
-```
-
-```{r}
-rm(thickness_centile_male_wider)
 ```
 
 ```{r}
@@ -350,5 +346,86 @@ thickness_centile_female_wider <- thickness_centile_female %>%
     centile_year_2 = centile_2_year_follow_up_y_arm_1,
     centile_year_4 = centile_4_year_follow_up_y_arm_1,
     )
+```
+
+Lets look into some individual level attributes
+
+```{r}
+glmm_male <- lmer(data = thickness_centile_male,
+                centile ~ interview_age + race_ethnicity + (1|src_subject_id))
+
+summary(glmm_male)
+```
+```{r}
+glmm_female <- lmer(data = thickness_centile_female,
+                centile ~ interview_age + race_ethnicity + (1|src_subject_id))
+
+summary(glmm_female)
+```
+
+```{r}
+lm_male_changes <- lm(
+  data = thickness_centile_male_wider %>%
+    mutate(
+      delta_centile_2 =
+        (centile_year_2 - centile_baseline) / (interview_age_year_2 - interview_age_baseline)
+    ) %>%
+    mutate(
+      delta_centile_4 =
+        (centile_year_4 - centile_year_2) / (interview_age_year_4 - interview_age_year_2)
+    ) %>%
+    mutate(
+      delta_centile_all =
+        (centile_year_4 - centile_baseline) / (interview_age_year_4 - interview_age_baseline)
+    ),
+  delta_centile_2 ~ interview_age_year_2 + race_ethnicity
+)
+
+summary(lm_male_changes)
+```
+
+```{r}
+thickness_centile_male_wider %>%
+  drop_na() %>% 
+  mutate(centile_bin = cut(centile_baseline, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE)) %>%
+  ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Individual Centile Scores by Race",
+       subtitle = "Scores at Baseline",
+       x = "Centile",
+       y = "Individual Count")
+
+thickness_centile_male_wider %>%
+  drop_na() %>% 
+  mutate(centile_bin = cut(centile_year_2, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE)) %>%
+  ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Individual Centile Scores by Race",
+       subtitle = "Scores at Year 2",
+       x = "Centile",
+       y = "Individual Count")
+
+thickness_centile_male_wider %>%
+  drop_na() %>% 
+  mutate(centile_bin = cut(centile_year_4, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE)) %>%
+  ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Individual Centile Scores by Race",
+       subtitle = "Scores at Year 4",
+       x = "Centile",
+       y = "Individual Count")
+
+# edit this plot to consider only certain races at a time
+thickness_centile_male_wider %>%
+  drop_na() %>%             # edit desired races below
+  filter(race_ethnicity %in% c("White", "Black")) %>% 
+                          # edit desired time below
+  mutate(centile_bin = cut(centile_baseline, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE)) %>%
+  ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Individual Centile Scores by Race",
+       subtitle = time,
+       x = "Centile",
+       y = "Individual Count")
 ```
 

@@ -169,10 +169,10 @@ lms_nu_f.nl.df <- lms_model_f$nu.nl.df
 area_model9_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -185,10 +185,10 @@ area_model9_male <- gamlss(
 area_model9_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -214,7 +214,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model9_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model9_male, xvar = area_harmonized_male$interview_age)
 
@@ -236,7 +236,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model9_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model9_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -248,10 +248,10 @@ wp(area_model9_female, xvar = area_harmonized_female$interview_age)
 area_model10_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -264,10 +264,10 @@ area_model10_male <- gamlss(
 area_model10_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -293,7 +293,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model10_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model10_male, xvar = area_harmonized_male$interview_age)
 
@@ -315,10 +315,11 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model10_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model10_female, xvar = area_harmonized_female$interview_age)
 ```
+
 ## Model 11 - family: Box-Cox power exp. original
 ```{r}
 # initial model for average thickness using gamlss
@@ -326,10 +327,10 @@ wp(area_model10_female, xvar = area_harmonized_female$interview_age)
 area_model11_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -342,10 +343,10 @@ area_model11_male <- gamlss(
 area_model11_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -371,7 +372,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model11_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model11_male, xvar = area_harmonized_male$interview_age)
 
@@ -393,7 +394,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model11_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model11_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -404,10 +405,10 @@ wp(area_model11_female, xvar = area_harmonized_female$interview_age)
 area_model12_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -420,10 +421,10 @@ area_model12_male <- gamlss(
 area_model12_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -449,7 +450,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model12_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model12_male, xvar = area_harmonized_male$interview_age)
 
@@ -471,7 +472,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model12_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model12_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -482,10 +483,10 @@ wp(area_model12_female, xvar = area_harmonized_female$interview_age)
 area_model13_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -498,10 +499,10 @@ area_model13_male <- gamlss(
 area_model13_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCT(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -527,7 +528,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model13_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model13_male, xvar = area_harmonized_male$interview_age)
 
@@ -549,7 +550,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model13_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model13_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -560,10 +561,10 @@ wp(area_model13_female, xvar = area_harmonized_female$interview_age)
 area_model14_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -576,10 +577,10 @@ area_model14_male <- gamlss(
 area_model14_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCTo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -605,7 +606,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model14_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model14_male, xvar = area_harmonized_male$interview_age)
 
@@ -627,7 +628,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model14_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model14_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -638,10 +639,10 @@ wp(area_model14_female, xvar = area_harmonized_female$interview_age)
 area_model15_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -654,10 +655,10 @@ area_model15_male <- gamlss(
 area_model15_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPEo(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -683,7 +684,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model15_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model15_male, xvar = area_harmonized_male$interview_age)
 
@@ -705,7 +706,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model15_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model15_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -716,10 +717,10 @@ wp(area_model15_female, xvar = area_harmonized_female$interview_age)
 area_model16_male <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_m.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_m.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_m.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_m.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -732,10 +733,10 @@ area_model16_male <- gamlss(
 area_model16_female <- gamlss(
   smri_area_cdk_total.combat ~ pb(interview_age^lms_model_m$power) + gamlss::random(src_subject_id), # random subject effect
   # mu, sigma, nu, tau with cubic splines with previously collected degrees of freedom
-  mu.formula =~ cs(interview_age, df = lms_mu.nl.df), 
-  sigma.formula =~ cs(interview_age, df = lms_sigma.nl.df),
-  nu.formula =~ cs(interview_age, df = lms_nu.nl.df),
-  tau.formula =~ cs(interview_age, df = lms_tau.nl.df),
+  mu.formula =~ cs(interview_age, df = lms_mu_f.nl.df), 
+  sigma.formula =~ cs(interview_age, df = lms_sigma_f.nl.df),
+  nu.formula =~ cs(interview_age, df = lms_nu_f.nl.df),
+  tau.formula =~ cs(interview_age, df = lms_tau_f.nl.df),
   
   family = BCPE(mu.link = "log", # to stay positive
                sigma.link = "log", # to stay positive
@@ -761,7 +762,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model16_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model16_male, xvar = area_harmonized_male$interview_age)
 
@@ -783,7 +784,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model16_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model16_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -833,7 +834,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model17_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model17_male, xvar = area_harmonized_male$interview_age)
 
@@ -855,7 +856,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model17_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model17_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -905,7 +906,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model18_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model18_male, xvar = area_harmonized_male$interview_age)
 
@@ -927,7 +928,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model18_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model18_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -977,7 +978,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model19_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model24_male, xvar = area_harmonized_male$interview_age)
 
@@ -999,7 +1000,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model19_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model19_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -1049,7 +1050,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model20_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model20_male, xvar = area_harmonized_male$interview_age)
 
@@ -1061,7 +1062,7 @@ wp(area_model20_male, xvar = area_harmonized_male$interview_age)
 summary(area_model20_female)
 
 fitted_centiles_legend(
-  area_model20_female,
+    area_model20_female,
   cent = c(2.5, 50, 97.5),
   xvar = thickness_harmonized_female %>% dplyr::select(interview_age) %>% pull) +
   labs(x = "Interview Age (Months)",
@@ -1071,7 +1072,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model20_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model20_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -1121,7 +1122,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model21_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model21_male, xvar = area_harmonized_male$interview_age)
 
@@ -1143,7 +1144,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model21_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model21_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -1193,7 +1194,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model22_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model22_male, xvar = area_harmonized_male$interview_age)
 
@@ -1215,7 +1216,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model22_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model22_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -1265,7 +1266,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model23_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model23_male, xvar = area_harmonized_male$interview_age)
 
@@ -1287,7 +1288,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model23_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model23_female, xvar = area_harmonized_female$interview_age)
 ```
@@ -1337,7 +1338,7 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model24_male,
   xvar = area_harmonized_male$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model24_male, xvar = area_harmonized_male$interview_age)
 
@@ -1359,7 +1360,81 @@ fitted_centiles_legend(
 round(Q.stats(
   area_model24_female,
   xvar = area_harmonized_female$interview_age,
-  zvals = TRUE), 3)
+  zvals = FALSE), 3)
 
 wp(area_model24_female, xvar = area_harmonized_female$interview_age)
 ```
+
+```{r}
+print("Model 9: Generalized Akaike Information Criterion:")
+GAIC(area_model9_male)
+GAIC(area_model9_female)
+
+print("Model 10: Generalized Akaike Information Criterion:")
+GAIC(area_model10_male)
+GAIC(area_model10_female)
+
+print("Model 11: Generalized Akaike Information Criterion:")
+GAIC(area_model11_male)
+GAIC(area_model11_female)
+
+print("Model 12: Generalized Akaike Information Criterion:")
+GAIC(area_model12_male)
+GAIC(area_model12_female)
+
+print("Model 13: Generalized Akaike Information Criterion:")
+GAIC(area_model13_male)
+GAIC(area_model13_female)
+
+print("Model 14: Generalized Akaike Information Criterion:")
+GAIC(area_model14_male)
+GAIC(area_model14_female)
+
+print("Model 15: Generalized Akaike Information Criterion:")
+GAIC(area_model15_male)
+GAIC(area_model15_female)
+
+print("Model 16: Generalized Akaike Information Criterion:")
+GAIC(area_model16_male)
+GAIC(area_model16_female)
+
+print("Model 17: Generalized Akaike Information Criterion:")
+GAIC(area_model17_male)
+GAIC(area_model17_female)
+
+print("Model 18: Generalized Akaike Information Criterion:")
+GAIC(area_model18_male)
+GAIC(area_model18_female)
+
+print("Model 19: Generalized Akaike Information Criterion:")
+GAIC(area_model19_male)
+GAIC(area_model19_female)
+
+print("Model 20: Generalized Akaike Information Criterion:")
+GAIC(area_model20_male)
+GAIC(area_model20_female)
+
+print("Model 21: Generalized Akaike Information Criterion:")
+GAIC(area_model21_male)
+GAIC(area_model21_female)
+
+print("Model 22: Generalized Akaike Information Criterion:")
+GAIC(area_model22_male)
+GAIC(area_model22_female)
+
+print("Model 23: Generalized Akaike Information Criterion:")
+GAIC(area_model23_male)
+GAIC(area_model23_female)
+
+print("Model 24: Generalized Akaike Information Criterion:")
+GAIC(area_model24_male)
+GAIC(area_model24_female)
+```
+
+Box-Cox t models have good mean on average on the q statistics on average. Good worms plots, some have convex? downward shape on bottom right
+
+Box-Cox t original has more spotty q statsitcs. less consistant. good worm plots, ends behaving more pattern like and extreme
+
+Box-Cox power exp orig has less not extreme q statsitics, extremeties still exist. worms plots similar to box cox t
+
+we decide on box cox power exp, model 20 as it is the most simple, all GAIC are comparible

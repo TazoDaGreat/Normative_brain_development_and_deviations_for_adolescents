@@ -83,6 +83,7 @@ df$centile <- with(model,pBCT(df$outcome,
     sigma = df$sigma,
     nu = df$nu,
     tau = df$tau))
+
 return(df)
 }
 
@@ -207,9 +208,9 @@ thickness_harmonized <- thickness_plus_harmonized %>%
 ```{r}
 result <- NULL
 brain_regions_model <- list() # idk if i need this anymore
-final_file_male  <- data.frame(src_subject_id = factor(),	race_ethnicity = character()	,interview_age_baseline_year_1_arm_1= double(),	interview_age_2_year_follow_up_y_arm_1= double(),	interview_age_4_year_follow_up_y_arm_1= double(),	outcome_baseline_year_1_arm_1= double(),	outcome_2_year_follow_up_y_arm_1= double(),	outcome_4_year_follow_up_y_arm_1= double(),	centile_baseline_year_1_arm_1= double(),	centile_2_year_follow_up_y_arm_1= double(),	centile_4_year_follow_up_y_arm_1= double(),	current_col_name= character())
+final_file_male  <- data.frame(src_subject_id = factor(),	race_ethnicity = character()	,interview_age_baseline_year_1_arm_1= double(),	interview_age_2_year_follow_up_y_arm_1= double(),	interview_age_4_year_follow_up_y_arm_1= double(),	outcome_baseline_year_1_arm_1= double(),	outcome_2_year_follow_up_y_arm_1= double(),	outcome_4_year_follow_up_y_arm_1= double(),	centile_baseline_year_1_arm_1= double(),	centile_2_year_follow_up_y_arm_1= double(),	centile_4_year_follow_up_y_arm_1= double(),	residual_baseline_year_1_arm_1= double(),	residual_2_year_follow_up_y_arm_1= double(),	residual_4_year_follow_up_y_arm_1= double(), current_col_name= character())
 
-final_file_female  <- data.frame(src_subject_id = factor(),	race_ethnicity = character()	,interview_age_baseline_year_1_arm_1= double(),	interview_age_2_year_follow_up_y_arm_1= double(),	interview_age_4_year_follow_up_y_arm_1= double(),	outcome_baseline_year_1_arm_1= double(),	outcome_2_year_follow_up_y_arm_1= double(),	outcome_4_year_follow_up_y_arm_1= double(),	centile_baseline_year_1_arm_1= double(),	centile_2_year_follow_up_y_arm_1= double(),	centile_4_year_follow_up_y_arm_1= double(),	current_col_name= character())
+final_file_female  <- data.frame(src_subject_id = factor(),	race_ethnicity = character()	,interview_age_baseline_year_1_arm_1= double(),	interview_age_2_year_follow_up_y_arm_1= double(),	interview_age_4_year_follow_up_y_arm_1= double(),	outcome_baseline_year_1_arm_1= double(),	outcome_2_year_follow_up_y_arm_1= double(),	outcome_4_year_follow_up_y_arm_1= double(),	centile_baseline_year_1_arm_1= double(),	centile_2_year_follow_up_y_arm_1= double(),	centile_4_year_follow_up_y_arm_1= double(),	residual_baseline_year_1_arm_1= double(),	residual_2_year_follow_up_y_arm_1= double(),	residual_4_year_follow_up_y_arm_1= double(), current_col_name= character())
 #View(final_file_male)
 
 for(i in 9:ncol(thickness_harmonized)){ #ncol(thickness_harmonized) goes over the entire data set
@@ -245,7 +246,16 @@ for(i in 9:ncol(thickness_harmonized)){ #ncol(thickness_harmonized) goes over th
   # Collecting centile scores for overall mean male
 
   thickness_harmonized_male <- add_parameters(thickness_harmonized_male, thickness_model21[[1]]) ## male 
+  
+  thickness_harmonized_male$fitted <- fitted(thickness_model21[[1]], what = "mu",type = "response")
+  thickness_harmonized_male$residual <-
+    thickness_harmonized_male$outcome - thickness_harmonized_male$fitted
+
   thickness_harmonized_female <- add_parameters(thickness_harmonized_female, thickness_model21[[2]]) ## female
+  
+  thickness_harmonized_female$fitted <- fitted(thickness_model21[[2]], what = "mu",type = "response")
+  thickness_harmonized_female$residual <-
+    thickness_harmonized_female$outcome - thickness_harmonized_female$fitted
   
   # adds eventname into df for pivot widering
   thickness_centile_male <- thickness_harmonized_male %>%
@@ -265,20 +275,20 @@ rm(thickness_centile_male_wider)
   thickness_centile_male_wider <- thickness_centile_male %>%
   select(
     src_subject_id, eventname, interview_age,
-    outcome, centile, race_ethnicity
+    outcome, centile, race_ethnicity, residual
   ) %>%
   pivot_wider(
     names_from = eventname,
-    values_from = c(interview_age, outcome, centile)
+    values_from = c(interview_age, outcome, centile, residual)
   )%>%
     mutate(current_col_name)
 
 thickness_centile_female_wider <- thickness_centile_female %>%
   select(src_subject_id, eventname, interview_age,
-         outcome, centile, race_ethnicity) %>%
+         outcome, centile, race_ethnicity, residual) %>%
   pivot_wider(
     names_from = eventname,
-    values_from = c(interview_age, outcome, centile)
+    values_from = c(interview_age, outcome, centile, residual)
     ) %>%
     mutate(current_col_name)
 

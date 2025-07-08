@@ -448,6 +448,17 @@ thickness_centile_male_wider_na %>%
 
 Naive Groupings
 ```{r}
+
+thickness_centile_male_wider_na %>% 
+  mutate(centile_cluster_naive = case_when(slope < 0 ~ 1, slope > 0 ~ 2)) %>% 
+  drop_na() %>%
+  ggplot(aes(x = centile_cluster_man, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Race Count By Naive Clusters",
+       subtitle = "Males By Naive Grouping",
+       x = "Cluster",
+       y = "Individual Count")
+  
 thickness_centile_male_wider_na %>% 
   mutate(centile_cluster_man = case_when((intercept < 0 & slope < 0) ~ 1,      # neg slope and int
                                          (intercept > 0 & slope > 0) ~ 4,      # pos slope and int
@@ -457,9 +468,10 @@ thickness_centile_male_wider_na %>%
   ggplot(aes(x = centile_cluster_man, fill = race_ethnicity)) +
   geom_bar(position = "stack") +
   labs(title = "Race Count By Centile Clusters",
-       subtitle = "Males By Naive Grouping",
+       subtitle = "Males By Manual Grouping",
        x = "Cluster",
        y = "Individual Count")
+
 ```
 
 

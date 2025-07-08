@@ -326,11 +326,11 @@ thickness_centile_female <- thickness_harmonized_female%>%
 thickness_centile_male_wider <- thickness_centile_male %>%
   select(
     src_subject_id, eventname, interview_age,
-    smri_thick_cdk_mean.combat, centile, race_ethnicity
+    smri_thick_cdk_mean.combat, centile, race_ethnicity, residual
   ) %>%
   pivot_wider(
     names_from = eventname,
-    values_from = c(interview_age, smri_thick_cdk_mean.combat, centile)
+    values_from = c(interview_age, smri_thick_cdk_mean.combat, centile, residual)
   ) %>%
   rename(
     interview_age_baseline = interview_age_baseline_year_1_arm_1,
@@ -342,16 +342,19 @@ thickness_centile_male_wider <- thickness_centile_male %>%
     centile_baseline = centile_baseline_year_1_arm_1,
     centile_year_2 = centile_2_year_follow_up_y_arm_1,
     centile_year_4 = centile_4_year_follow_up_y_arm_1,
+    residual_baseline = residual_baseline_year_1_arm_1,
+    residual_year_2 = residual_2_year_follow_up_y_arm_1,
+    residual_year_4 = residual_4_year_follow_up_y_arm_1
     )
 
 thickness_centile_female_wider <- thickness_centile_female %>%
   select(
     src_subject_id, eventname, interview_age,
-         smri_thick_cdk_mean.combat, centile, race_ethnicity
+         smri_thick_cdk_mean.combat, centile, race_ethnicity, residual
     ) %>%
   pivot_wider(
     names_from = eventname,
-    values_from = c(interview_age, smri_thick_cdk_mean.combat, centile)
+    values_from = c(interview_age, smri_thick_cdk_mean.combat, centile, residual)
     ) %>%
   rename(
     interview_age_baseline = interview_age_baseline_year_1_arm_1,
@@ -363,6 +366,9 @@ thickness_centile_female_wider <- thickness_centile_female %>%
     centile_baseline = centile_baseline_year_1_arm_1,
     centile_year_2 = centile_2_year_follow_up_y_arm_1,
     centile_year_4 = centile_4_year_follow_up_y_arm_1,
+    residual_baseline = residual_baseline_year_1_arm_1,
+    residual_year_2 = residual_2_year_follow_up_y_arm_1,
+    residual_year_4 = residual_4_year_follow_up_y_arm_1
     )
 ```
 
@@ -377,7 +383,10 @@ thickness_centile_female_mh <- thickness_centile_female %>%
   left_join(mh_data, by = join_by("src_subject_id", "eventname", "interview_age"))
 ```
 
+Males first
 ```{r}
+# fits a lm model for each individual
+# grabs slope, intercept at age 9, and R squared score
 thickness_centile_male_wider <- thickness_centile_male %>% 
   group_by(src_subject_id) %>%
   mutate(interview_age_centered = interview_age - 108) %>% 
@@ -392,17 +401,19 @@ thickness_centile_male_wider <- thickness_centile_male %>%
 
 ```
 
+K-Means clustering
 ```{r}
 set.seed(118)  # for reproducibility
 
+# removes na in slope
 thickness_centile_male_wider_na <- thickness_centile_male_wider %>% 
   filter(!is.na(slope))
 
+#normalize scores
 thickness_centile_male_wider_na$intercept_scaled <-
   as.numeric(scale(thickness_centile_male_wider_na$intercept))
 thickness_centile_male_wider_na$slope_scaled     <-
   as.numeric(scale(thickness_centile_male_wider_na$slope))
-
 
 kmeans <- kmeans(thickness_centile_male_wider_na[, c("slope_scaled", "intercept_scaled")], 4)
 thickness_centile_male_wider_na$centile_cluster_km <- kmeans$cluster
@@ -418,7 +429,7 @@ thickness_centile_male_wider_na %>%
 
 ```
 
-
+Hierarchical Clustering
 ```{r}
 hc_average <- hclust(dist(thickness_centile_male_wider_na[, c("slope_scaled", "intercept_scaled")]),
                      method = "average")
@@ -434,6 +445,24 @@ thickness_centile_male_wider_na %>%
        y = "Slope",
        color = "Cluster")
 ```
+
+Naive Groupings
+```{r}
+thickness_centile_male_wider_na %>% 
+  mutate(centile_cluster_man = case_when((intercept < 0 & slope < 0) ~ 1,      # neg slope and int
+                                         (intercept > 0 & slope > 0) ~ 4,      # pos slope and int
+                                         (intercept > 0 & slope < 0) ~ 2,      # neg slope and pos int
+                                         (intercept < 0 & slope > 0) ~ 3)) %>% # pos slope and neg int
+  drop_na() %>%
+  ggplot(aes(x = centile_cluster_man, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Race Count By Centile Clusters",
+       subtitle = "Males By Naive Grouping",
+       x = "Cluster",
+       y = "Individual Count")
+```
+
+
 Plotting some results from the clusters
 ```{r}
 thickness_centile_male_wider_na %>%
@@ -442,6 +471,7 @@ thickness_centile_male_wider_na %>%
   geom_vline(xintercept = mean(thickness_centile_male_wider_na$intercept),
              linetype = "dashed", color = "black") +
   labs(x = "Intercept at Age 9 (108 Months)",
+       subtitle = "Male",
        y = "Slope",
        color = "Cluster")
 
@@ -450,6 +480,7 @@ thickness_centile_male_wider_na %>%
   ggplot(aes(x = centile_cluster_km, fill = race_ethnicity)) +
   geom_bar(position = "stack") +
   labs(title = "Race Count By Centile Clusters",
+       subtitle = "Male",
        x = "Cluster",
        y = "Individual Count")
 
@@ -460,22 +491,13 @@ thickness_centile_male_wider_na %>%
   ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = race_ethnicity)) +
   geom_col(position = "fill") +
   labs(title = "Race Proportions by Cluster",
-       x = "Cluster",
-       y = "Proportion")
-```
-
-```{r}
-thickness_centile_male_wider_na %>%
-  group_by(centile_cluster_km, demo_comb_income_v2_comb) %>%
-  summarize(count = n()) %>%
-  mutate(prop = count / sum(count)) %>%
-  ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = demo_comb_income_v2_comb)) +
-  geom_col(position = "fill") +
-  labs(title = "Income Proportions by Cluster",
+       subtitle = "Male",
        x = "Cluster",
        y = "Proportion")
 
 ```
+
+Considering income relationship in clusters
 ```{r}
 thickness_centile_male_wider_na %>%
   left_join(thickness_centile_male_mh %>%
@@ -494,6 +516,7 @@ thickness_centile_male_wider_na %>%
   ggplot(aes(x = centile_cluster_km, fill = income_simple)) +
   geom_bar(position = "stack") +
   labs(title = "Income Counts by Cluster",
+       subtitle = "Male",
        x = "Cluster",
        y = "Individual Counts")
 
@@ -517,12 +540,13 @@ thickness_centile_male_wider_na %>%
   ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = income_simple)) +
   geom_col(position = "fill") +
   labs(title = "Income Proportions by Cluster",
+       subtitle = "Male",
        x = "Cluster",
        y = "Proportion")
 
-
-
 ```
+
+Chi Squared test for significance
 ```{r}
 
 chi_sq_data <- thickness_centile_male_wider_na %>%
@@ -544,14 +568,168 @@ table_income <- table(chi_sq_data$centile_cluster_km,
 chisq.test(table_income)
 ```
 
-Let's begin getting individual residuals scores away from predicted gamlss model
+Repeat for females
 ```{r}
-thickness_harmonized_male$fitted <- fitted(thickness_model21_male,
-                                        what = "mu",
-                                        type = "response")
-thickness_harmonized_male$residual <- 
-  thickness_harmonized_male$smri_thick_cdk_mean.combat - thickness_harmonized_male$fitted
-
+thickness_centile_female_wider <- thickness_centile_female %>% 
+  group_by(src_subject_id) %>%
+  mutate(interview_age_centered = interview_age - 108) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~ lm(centile ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(intercept= x$coef[1],
+                                              slope = x$coef[2],
+                                              rsq = summary(x)$r.squared))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, model, intercept, slope, rsq) %>% 
+  left_join(thickness_centile_female_wider, by = "src_subject_id")
 
 ```
+
+
+```{r}
+set.seed(118)  # for reproducibility
+
+thickness_centile_female_wider_na <- thickness_centile_female_wider %>% 
+  filter(!is.na(slope))
+
+thickness_centile_female_wider_na$intercept_scaled <-
+  as.numeric(scale(thickness_centile_female_wider_na$intercept))
+thickness_centile_female_wider_na$slope_scaled     <-
+  as.numeric(scale(thickness_centile_female_wider_na$slope))
+
+
+kmeans <- kmeans(thickness_centile_female_wider_na[, c("slope_scaled", "intercept_scaled")], 4)
+thickness_centile_female_wider_na$centile_cluster_km <- kmeans$cluster
+
+thickness_centile_female_wider_na %>%
+  ggplot(aes(x = intercept, y = slope, color = factor(centile_cluster_km))) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = mean(thickness_centile_female_wider_na$intercept),
+             linetype = "dashed", color = "black") +
+  labs(x = "Intercept at Age 9 (108 Months)",
+       subtitle = "Female",
+       y = "Slope",
+       color = "Cluster")
+
+```
+
+
+```{r}
+hc_average <- hclust(dist(thickness_centile_female_wider_na[, c("slope_scaled", "intercept_scaled")]),
+                     method = "average")
+
+thickness_centile_female_wider_na$centile_cluster_hc <- cutree(hc_average, k = 6)
+
+thickness_centile_female_wider_na %>%
+  ggplot(aes(x = intercept, y = slope, color = factor(centile_cluster_hc))) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = mean(thickness_centile_female_wider_na$intercept),
+             linetype = "dashed", color = "black") +
+  labs(x = "Intercept at Age 9 (108 Months)",
+       subtitle = "Female",
+       y = "Slope",
+       color = "Cluster")
+```
+
+Plotting some results from the clusters
+```{r}
+thickness_centile_female_wider_na %>%
+  ggplot(aes(x = intercept, y = slope, color = factor(centile_cluster_km))) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = mean(thickness_centile_female_wider_na$intercept),
+             linetype = "dashed", color = "black") +
+  labs(x = "Intercept at Age 9 (108 Months)",
+       subtitle = "Female",
+       y = "Slope",
+       color = "Cluster")
+
+thickness_centile_female_wider_na %>%
+  drop_na() %>%
+  ggplot(aes(x = centile_cluster_km, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Race Count By Centile Clusters",
+       subtitle = "Female",
+       x = "Cluster",
+       y = "Individual Count")
+
+thickness_centile_female_wider_na %>%
+  group_by(centile_cluster_km, race_ethnicity) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = race_ethnicity)) +
+  geom_col(position = "fill") +
+  labs(title = "Race Proportions by Cluster",
+       subtitle = "Female",
+       x = "Cluster",
+       y = "Proportion")
+```
+
+```{r}
+thickness_centile_female_wider_na %>%
+  left_join(thickness_centile_female_mh %>%
+              group_by(src_subject_id) %>%
+              summarize(demo_comb_income_v2_comb = first(na.omit(demo_comb_income_v2_comb)))
+          , by = "src_subject_id") %>% 
+  mutate(income_simple = case_when(
+    demo_comb_income_v2_comb %in% 1:4   ~ 1,  # < $25k
+    demo_comb_income_v2_comb %in% 7:8   ~ 2,  # $50k–$99k
+    demo_comb_income_v2_comb == 10      ~ 4,  # > $200k
+    demo_comb_income_v2_comb %in% c(5,6,9) ~ 3,  # everyone else
+    demo_comb_income_v2_comb %in% c(777, 999) ~ NA  # missing responses
+  )) %>% 
+  mutate(income_simple = factor(income_simple)) %>% 
+  filter(!is.na(income_simple)) %>% 
+  ggplot(aes(x = centile_cluster_km, fill = income_simple)) +
+  geom_bar(position = "stack") +
+  labs(title = "Income Counts by Cluster",
+       subtitle = "Female",
+       x = "Cluster",
+       y = "Individual Counts")
+
+
+thickness_centile_female_wider_na %>%
+  left_join(thickness_centile_female_mh %>%
+              group_by(src_subject_id) %>%
+              summarize(demo_comb_income_v2_comb = first(na.omit(demo_comb_income_v2_comb)))
+          , by = "src_subject_id") %>% 
+  mutate(income_simple = case_when(
+    demo_comb_income_v2_comb %in% 1:4   ~ 1,  # < $25k
+    demo_comb_income_v2_comb %in% 7:8   ~ 2,  # $50k–$99k
+    demo_comb_income_v2_comb == 10      ~ 4,  # > $200k
+    demo_comb_income_v2_comb %in% c(5,6,9) ~ 3,  # everyone else
+    demo_comb_income_v2_comb %in% c(777, 999) ~ NA_real_  # missing responses
+  )) %>% 
+  filter(!is.na(income_simple)) %>% 
+  group_by(centile_cluster_km, income_simple) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = income_simple)) +
+  geom_col(position = "fill") +
+  labs(title = "Income Proportions by Cluster",
+       subtitle = "Female",
+       x = "Cluster",
+       y = "Proportion")
+
+```
+
+```{r}
+
+chi_sq_data <- thickness_centile_female_wider_na %>%
+  left_join(thickness_centile_female_mh %>%
+              group_by(src_subject_id) %>%
+              summarize(demo_comb_income_v2_comb = first(na.omit(demo_comb_income_v2_comb)))
+          , by = "src_subject_id") %>% 
+  mutate(income_simple = case_when(
+    demo_comb_income_v2_comb %in% 1:4   ~ 1,  # < $25k
+    demo_comb_income_v2_comb %in% 7:8   ~ 2,  # $50k–$99k
+    demo_comb_income_v2_comb == 10      ~ 4,  # > $200k
+    demo_comb_income_v2_comb %in% c(5,6,9) ~ 3,  # everyone else
+    demo_comb_income_v2_comb %in% c(777, 999) ~ NA_real_  # missing responses
+  )) %>% 
+  filter(!is.na(income_simple))
+
+table_income <- table(chi_sq_data$centile_cluster_km,
+                      chi_sq_data$income_simple)
+chisq.test(table_income)
+```
+
 

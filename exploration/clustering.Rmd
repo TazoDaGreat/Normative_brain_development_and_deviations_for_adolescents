@@ -259,6 +259,13 @@ thickness_harmonized_male$centile <- with(thickness_model21_male,
     sigma = thickness_harmonized_male$sigma,
     nu = thickness_harmonized_male$nu,
     tau = thickness_harmonized_male$tau))
+
+
+thickness_harmonized_male$fitted <- fitted(thickness_model21_male,
+                                        what = "mu",
+                                        type = "response")
+thickness_harmonized_male$residual <- 
+  thickness_harmonized_male$smri_thick_cdk_mean.combat - thickness_harmonized_male$fitted
 ```
 
 
@@ -290,6 +297,13 @@ thickness_harmonized_female$centile <- with(thickness_model21_female,
     sigma = thickness_harmonized_female$sigma,
     nu = thickness_harmonized_female$nu,
     tau = thickness_harmonized_female$tau))
+
+thickness_harmonized_female$fitted <- fitted(thickness_model21_female,
+                                        what = "mu",
+                                        type = "response")
+thickness_harmonized_female$residual <- 
+  thickness_harmonized_female$smri_thick_cdk_mean.combat - thickness_harmonized_female$fitted
+
 ```
 
 ```{r}
@@ -361,5 +375,183 @@ thickness_centile_male_mh <- thickness_centile_male %>%
 thickness_centile_female_mh <- thickness_centile_female %>%
   select(src_subject_id, eventname, interview_age, smri_thick_cdk_mean.combat, centile) %>% 
   left_join(mh_data, by = join_by("src_subject_id", "eventname", "interview_age"))
+```
+
+```{r}
+thickness_centile_male_wider <- thickness_centile_male %>% 
+  group_by(src_subject_id) %>%
+  mutate(interview_age_centered = interview_age - 108) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~ lm(centile ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(intercept= x$coef[1],
+                                              slope = x$coef[2],
+                                              rsq = summary(x)$r.squared))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, model, intercept, slope, rsq) %>% 
+  left_join(thickness_centile_male_wider, by = "src_subject_id")
+
+```
+
+```{r}
+set.seed(118)  # for reproducibility
+
+thickness_centile_male_wider_na <- thickness_centile_male_wider %>% 
+  filter(!is.na(slope))
+
+thickness_centile_male_wider_na$intercept_scaled <-
+  as.numeric(scale(thickness_centile_male_wider_na$intercept))
+thickness_centile_male_wider_na$slope_scaled     <-
+  as.numeric(scale(thickness_centile_male_wider_na$slope))
+
+
+kmeans <- kmeans(thickness_centile_male_wider_na[, c("slope_scaled", "intercept_scaled")], 4)
+thickness_centile_male_wider_na$centile_cluster_km <- kmeans$cluster
+
+thickness_centile_male_wider_na %>%
+  ggplot(aes(x = intercept, y = slope, color = factor(centile_cluster_km))) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = mean(thickness_centile_male_wider_na$intercept),
+             linetype = "dashed", color = "black") +
+  labs(x = "Intercept at Age 9 (108 Months)",
+       y = "Slope",
+       color = "Cluster")
+
+```
+
+
+```{r}
+hc_average <- hclust(dist(thickness_centile_male_wider_na[, c("slope_scaled", "intercept_scaled")]),
+                     method = "average")
+
+thickness_centile_male_wider_na$centile_cluster_hc <- cutree(hc_average, k = 6)
+
+thickness_centile_male_wider_na %>%
+  ggplot(aes(x = intercept, y = slope, color = factor(centile_cluster_hc))) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = mean(thickness_centile_male_wider_na$intercept),
+             linetype = "dashed", color = "black") +
+  labs(x = "Intercept at Age 9 (108 Months)",
+       y = "Slope",
+       color = "Cluster")
+```
+Plotting some results from the clusters
+```{r}
+thickness_centile_male_wider_na %>%
+  ggplot(aes(x = intercept, y = slope, color = factor(centile_cluster_km))) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = mean(thickness_centile_male_wider_na$intercept),
+             linetype = "dashed", color = "black") +
+  labs(x = "Intercept at Age 9 (108 Months)",
+       y = "Slope",
+       color = "Cluster")
+
+thickness_centile_male_wider_na %>%
+  drop_na() %>%
+  ggplot(aes(x = centile_cluster_km, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Race Count By Centile Clusters",
+       x = "Cluster",
+       y = "Individual Count")
+
+thickness_centile_male_wider_na %>%
+  group_by(centile_cluster_km, race_ethnicity) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = race_ethnicity)) +
+  geom_col(position = "fill") +
+  labs(title = "Race Proportions by Cluster",
+       x = "Cluster",
+       y = "Proportion")
+```
+
+```{r}
+thickness_centile_male_wider_na %>%
+  group_by(centile_cluster_km, demo_comb_income_v2_comb) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = demo_comb_income_v2_comb)) +
+  geom_col(position = "fill") +
+  labs(title = "Income Proportions by Cluster",
+       x = "Cluster",
+       y = "Proportion")
+
+```
+```{r}
+thickness_centile_male_wider_na %>%
+  left_join(thickness_centile_male_mh %>%
+              group_by(src_subject_id) %>%
+              summarize(demo_comb_income_v2_comb = first(na.omit(demo_comb_income_v2_comb)))
+          , by = "src_subject_id") %>% 
+  mutate(income_simple = case_when(
+    demo_comb_income_v2_comb %in% 1:4   ~ 1,  # < $25k
+    demo_comb_income_v2_comb %in% 7:8   ~ 2,  # $50k–$99k
+    demo_comb_income_v2_comb == 10      ~ 4,  # > $200k
+    demo_comb_income_v2_comb %in% c(5,6,9) ~ 3,  # everyone else
+    demo_comb_income_v2_comb %in% c(777, 999) ~ NA  # missing responses
+  )) %>% 
+  mutate(income_simple = factor(income_simple)) %>% 
+  filter(!is.na(income_simple)) %>% 
+  ggplot(aes(x = centile_cluster_km, fill = income_simple)) +
+  geom_bar(position = "stack") +
+  labs(title = "Income Counts by Cluster",
+       x = "Cluster",
+       y = "Individual Counts")
+
+
+thickness_centile_male_wider_na %>%
+  left_join(thickness_centile_male_mh %>%
+              group_by(src_subject_id) %>%
+              summarize(demo_comb_income_v2_comb = first(na.omit(demo_comb_income_v2_comb)))
+          , by = "src_subject_id") %>% 
+  mutate(income_simple = case_when(
+    demo_comb_income_v2_comb %in% 1:4   ~ 1,  # < $25k
+    demo_comb_income_v2_comb %in% 7:8   ~ 2,  # $50k–$99k
+    demo_comb_income_v2_comb == 10      ~ 4,  # > $200k
+    demo_comb_income_v2_comb %in% c(5,6,9) ~ 3,  # everyone else
+    demo_comb_income_v2_comb %in% c(777, 999) ~ NA_real_  # missing responses
+  )) %>% 
+  filter(!is.na(income_simple)) %>% 
+  group_by(centile_cluster_km, income_simple) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = income_simple)) +
+  geom_col(position = "fill") +
+  labs(title = "Income Proportions by Cluster",
+       x = "Cluster",
+       y = "Proportion")
+
+
+
+```
+```{r}
+
+chi_sq_data <- thickness_centile_male_wider_na %>%
+  left_join(thickness_centile_male_mh %>%
+              group_by(src_subject_id) %>%
+              summarize(demo_comb_income_v2_comb = first(na.omit(demo_comb_income_v2_comb)))
+          , by = "src_subject_id") %>% 
+  mutate(income_simple = case_when(
+    demo_comb_income_v2_comb %in% 1:4   ~ 1,  # < $25k
+    demo_comb_income_v2_comb %in% 7:8   ~ 2,  # $50k–$99k
+    demo_comb_income_v2_comb == 10      ~ 4,  # > $200k
+    demo_comb_income_v2_comb %in% c(5,6,9) ~ 3,  # everyone else
+    demo_comb_income_v2_comb %in% c(777, 999) ~ NA_real_  # missing responses
+  )) %>% 
+  filter(!is.na(income_simple))
+
+table_income <- table(chi_sq_data$centile_cluster_km,
+                      chi_sq_data$income_simple)
+chisq.test(table_income)
+```
+
+Let's begin getting individual residuals scores away from predicted gamlss model
+```{r}
+thickness_harmonized_male$fitted <- fitted(thickness_model21_male,
+                                        what = "mu",
+                                        type = "response")
+thickness_harmonized_male$residual <- 
+  thickness_harmonized_male$smri_thick_cdk_mean.combat - thickness_harmonized_male$fitted
+
+
 ```
 

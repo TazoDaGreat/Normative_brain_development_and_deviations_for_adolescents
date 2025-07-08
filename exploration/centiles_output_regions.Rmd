@@ -303,9 +303,9 @@ thickness_centile_female_wider <- thickness_centile_female %>%
 
 }
 print(final_file_male)
-final_file_male <- final_file_male %>% select(-interview_age_baseline_year_1_arm_1,-interview_age_2_year_follow_up_y_arm_1,-interview_age_4_year_follow_up_y_arm_1)
+
 write.csv(final_file_male, file = file.path("~/Library/CloudStorage/Box-Box/thickness/", "final_data_male.csv"), row.names = FALSE)
-final_file_female <- final_file_female %>% select(-interview_age_baseline_year_1_arm_1,-interview_age_2_year_follow_up_y_arm_1,-interview_age_4_year_follow_up_y_arm_1)
+
 write.csv(final_file_female, file = file.path("~/Library/CloudStorage/Box-Box/thickness/", "final_data_female.csv"), row.names = FALSE)
 
 ```

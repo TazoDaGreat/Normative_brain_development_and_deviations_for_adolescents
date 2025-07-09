@@ -14,6 +14,7 @@ library(gamlss.data)
 library(gamlss.dist)
 library(gamlss.foreach)
 library(gamlss.ggplots)
+library(lme4)
 ```
 
 Data preproccessing

@@ -385,35 +385,31 @@ summary(lm_male_changes)
 ```
 
 ```{r}
-thickness_centile_male_wider %>%
+baseline <- thickness_centile_male_wider %>%
   drop_na() %>% 
-  mutate(centile_bin = cut(centile_baseline, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE)) %>%
-  ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
-  geom_bar(position = "stack") +
-  labs(title = "Individual Centile Scores by Race",
-       subtitle = "Scores at Baseline",
-       x = "Centile",
-       y = "Individual Count")
+  mutate(centile_bin = cut(centile_baseline, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE), timepoint = "baseline"
+         )
 
-thickness_centile_male_wider %>%
+year_two <- thickness_centile_male_wider %>%
   drop_na() %>% 
-  mutate(centile_bin = cut(centile_year_2, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE)) %>%
-  ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
-  geom_bar(position = "stack") +
-  labs(title = "Individual Centile Scores by Race",
-       subtitle = "Scores at Year 2",
-       x = "Centile",
-       y = "Individual Count")
+  mutate(centile_bin = cut(centile_year_2, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE), timepoint = "Year 2")
 
-thickness_centile_male_wider %>%
+year_four <- thickness_centile_male_wider %>%
   drop_na() %>% 
-  mutate(centile_bin = cut(centile_year_4, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE)) %>%
-  ggplot(aes(x = centile_bin, fill = race_ethnicity)) +
-  geom_bar(position = "stack") +
-  labs(title = "Individual Centile Scores by Race",
-       subtitle = "Scores at Year 4",
-       x = "Centile",
-       y = "Individual Count")
+  mutate(centile_bin = cut(centile_year_4, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE),timepoint = "Year 4")
+
+  combined_df <- bind_rows(baseline, year_two, year_four)
+
+ggplot(combined_df, aes(x= centile_bin, fill= race_ethnicity))+ 
+  geom_bar(position = "stack") + 
+  facet_wrap(~ timepoint) +
+  labs(
+    title = "Centile Score Distribution by Race",
+    subtitle = "Baseline and Year 2 and year 4",
+    x = "Centile Bin",
+    y = "Individual Count"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 # edit this plot to consider only certain races at a time
 thickness_centile_male_wider %>%

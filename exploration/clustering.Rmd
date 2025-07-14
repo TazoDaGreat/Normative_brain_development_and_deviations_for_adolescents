@@ -423,7 +423,9 @@ thickness_centile_male_wider_na %>%
   geom_point(size = 2) +
   geom_vline(xintercept = mean(thickness_centile_male_wider_na$intercept),
              linetype = "dashed", color = "black") +
-  labs(x = "Intercept at Age 9 (108 Months)",
+  labs(title = "K Means",
+       subtitle = "Males; k=4",
+       x = "Intercept at Age 9 (108 Months)",
        y = "Slope",
        color = "Cluster")
 
@@ -441,7 +443,9 @@ thickness_centile_male_wider_na %>%
   geom_point(size = 2) +
   geom_vline(xintercept = mean(thickness_centile_male_wider_na$intercept),
              linetype = "dashed", color = "black") +
-  labs(x = "Intercept at Age 9 (108 Months)",
+  labs(title = "Hierarchical",
+       subtitle = "Males; k=6",
+       x = "Intercept at Age 9 (108 Months)",
        y = "Slope",
        color = "Cluster")
 ```
@@ -452,10 +456,11 @@ Naive Groupings
 thickness_centile_male_wider_na %>% 
   mutate(centile_cluster_naive = case_when(slope < 0 ~ 1, slope > 0 ~ 2)) %>% 
   drop_na() %>%
-  ggplot(aes(x = centile_cluster_man, fill = race_ethnicity)) +
+  ggplot(aes(x = factor(centile_cluster_naive), fill = race_ethnicity)) +
   geom_bar(position = "stack") +
-  labs(title = "Race Count By Naive Clusters",
-       subtitle = "Males By Naive Grouping",
+  scale_x_discrete(labels = c("1" = "Negative Slope", "2" = "Positive Slope")) +
+  labs(title = "Race Count By Slope Clusters",
+       subtitle = "Males",
        x = "Cluster",
        y = "Individual Count")
   
@@ -467,10 +472,46 @@ thickness_centile_male_wider_na %>%
   drop_na() %>%
   ggplot(aes(x = centile_cluster_man, fill = race_ethnicity)) +
   geom_bar(position = "stack") +
-  labs(title = "Race Count By Centile Clusters",
-       subtitle = "Males By Manual Grouping",
+  labs(title = "Race Count By Slope and Intercept Clusters",
+       subtitle = "Males",
        x = "Cluster",
        y = "Individual Count")
+
+thickness_centile_male_wider_na %>% 
+  mutate(centile_cluster_naive = case_when(slope < 0 ~ 1, slope > 0 ~ 2)) %>% 
+  drop_na() %>%
+  group_by(centile_cluster_naive, race_ethnicity) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_naive), y = prop, fill = race_ethnicity)) +
+  geom_col(position = "fill") +
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  scale_x_discrete(labels = c("1" = "Negative Slope", "2" = "Positive Slope")) +
+  labs(title = "Race Proportions By Slope Clusters",
+       subtitle = "Males",
+       x = "Cluster",
+       y = "Proportion")
+
+thickness_centile_male_wider_na %>% 
+  mutate(centile_cluster_man = case_when((intercept < 0 & slope < 0) ~ 1,      # neg slope and int
+                                         (intercept > 0 & slope > 0) ~ 4,      # pos slope and int
+                                         (intercept > 0 & slope < 0) ~ 2,      # neg slope and pos int
+                                         (intercept < 0 & slope > 0) ~ 3)) %>% # pos slope and neg int
+  drop_na() %>%
+  group_by(centile_cluster_man, race_ethnicity) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_man), y = prop, fill = race_ethnicity)) +
+  geom_col(position = "fill") +
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  labs(title = "Race Proportions By Slope and Intercept Clusters",
+       subtitle = "Males",
+       x = "Cluster",
+       y = "Proportion")
 
 ```
 
@@ -491,7 +532,7 @@ thickness_centile_male_wider_na %>%
   drop_na() %>%
   ggplot(aes(x = centile_cluster_km, fill = race_ethnicity)) +
   geom_bar(position = "stack") +
-  labs(title = "Race Count By Centile Clusters",
+  labs(title = "Race Count By K-Means Centile Clusters",
        subtitle = "Male",
        x = "Cluster",
        y = "Individual Count")
@@ -502,7 +543,10 @@ thickness_centile_male_wider_na %>%
   mutate(prop = count / sum(count)) %>%
   ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = race_ethnicity)) +
   geom_col(position = "fill") +
-  labs(title = "Race Proportions by Cluster",
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  labs(title = "Race Proportions By K-Means Centile Cluster",
        subtitle = "Male",
        x = "Cluster",
        y = "Proportion")
@@ -527,7 +571,7 @@ thickness_centile_male_wider_na %>%
   filter(!is.na(income_simple)) %>% 
   ggplot(aes(x = centile_cluster_km, fill = income_simple)) +
   geom_bar(position = "stack") +
-  labs(title = "Income Counts by Cluster",
+  labs(title = "Income Counts By K-Means Cluster",
        subtitle = "Male",
        x = "Cluster",
        y = "Individual Counts")
@@ -551,11 +595,38 @@ thickness_centile_male_wider_na %>%
   mutate(prop = count / sum(count)) %>%
   ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = income_simple)) +
   geom_col(position = "fill") +
-  labs(title = "Income Proportions by Cluster",
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  labs(title = "Income Proportions By K-Means Cluster",
        subtitle = "Male",
        x = "Cluster",
        y = "Proportion")
 
+```
+```{r}
+
+thickness_centile_male_wider_na %>%
+  ggplot(aes(x = centile_cluster_hc, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Race Count By Hierarchical Centile Clusters",
+       subtitle = "Male",
+       x = "Cluster",
+       y = "Individual Count")
+
+thickness_centile_male_wider_na %>%
+  group_by(centile_cluster_hc, race_ethnicity) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_hc), y = prop, fill = race_ethnicity)) +
+  geom_col(position = "fill") +
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  labs(title = "Race Proportions By Hierarchical Centile Cluster",
+       subtitle = "Male",
+       x = "Cluster",
+       y = "Proportion")
 ```
 
 Chi Squared test for significance
@@ -618,6 +689,7 @@ thickness_centile_female_wider_na %>%
   geom_vline(xintercept = mean(thickness_centile_female_wider_na$intercept),
              linetype = "dashed", color = "black") +
   labs(x = "Intercept at Age 9 (108 Months)",
+       title = "K-Means",
        subtitle = "Female",
        y = "Slope",
        color = "Cluster")
@@ -637,6 +709,7 @@ thickness_centile_female_wider_na %>%
   geom_vline(xintercept = mean(thickness_centile_female_wider_na$intercept),
              linetype = "dashed", color = "black") +
   labs(x = "Intercept at Age 9 (108 Months)",
+       title = "Hierarchical",
        subtitle = "Female",
        y = "Slope",
        color = "Cluster")
@@ -658,7 +731,7 @@ thickness_centile_female_wider_na %>%
   drop_na() %>%
   ggplot(aes(x = centile_cluster_km, fill = race_ethnicity)) +
   geom_bar(position = "stack") +
-  labs(title = "Race Count By Centile Clusters",
+  labs(title = "Race Count By K-Means Clusters",
        subtitle = "Female",
        x = "Cluster",
        y = "Individual Count")
@@ -669,7 +742,10 @@ thickness_centile_female_wider_na %>%
   mutate(prop = count / sum(count)) %>%
   ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = race_ethnicity)) +
   geom_col(position = "fill") +
-  labs(title = "Race Proportions by Cluster",
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  labs(title = "Race Proportions By K-Means Cluster",
        subtitle = "Female",
        x = "Cluster",
        y = "Proportion")
@@ -692,7 +768,7 @@ thickness_centile_female_wider_na %>%
   filter(!is.na(income_simple)) %>% 
   ggplot(aes(x = centile_cluster_km, fill = income_simple)) +
   geom_bar(position = "stack") +
-  labs(title = "Income Counts by Cluster",
+  labs(title = "Income Counts By K-Means Cluster",
        subtitle = "Female",
        x = "Cluster",
        y = "Individual Counts")
@@ -716,11 +792,38 @@ thickness_centile_female_wider_na %>%
   mutate(prop = count / sum(count)) %>%
   ggplot(aes(x = factor(centile_cluster_km), y = prop, fill = income_simple)) +
   geom_col(position = "fill") +
-  labs(title = "Income Proportions by Cluster",
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  labs(title = "Income Proportions By K-Means Cluster",
        subtitle = "Female",
        x = "Cluster",
        y = "Proportion")
 
+```
+```{r}
+
+thickness_centile_female_wider_na %>%
+  ggplot(aes(x = centile_cluster_hc, fill = race_ethnicity)) +
+  geom_bar(position = "stack") +
+  labs(title = "Race Count By Hierarchical Centile Clusters",
+       subtitle = "Female",
+       x = "Cluster",
+       y = "Individual Count")
+
+thickness_centile_female_wider_na %>%
+  group_by(centile_cluster_hc, race_ethnicity) %>%
+  summarize(count = n()) %>%
+  mutate(prop = count / sum(count)) %>%
+  ggplot(aes(x = factor(centile_cluster_hc), y = prop, fill = race_ethnicity)) +
+  geom_col(position = "fill") +
+  geom_text(aes(label = scales::percent(prop, accuracy = 0.01)),
+            position = position_fill(vjust = 0.5),
+            size = 3, color = "white") +
+  labs(title = "Race Proportions By Hierarchical Centile Cluster",
+       subtitle = "Female",
+       x = "Cluster",
+       y = "Proportion")
 ```
 
 ```{r}

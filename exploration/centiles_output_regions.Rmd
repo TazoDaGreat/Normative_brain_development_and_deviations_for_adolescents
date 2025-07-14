@@ -6,8 +6,7 @@ output: html_document
 
 
 ```{r}
-library(dplyr)
-library(longCombat)
+library(tidyverse)
 library(forcats)
 library(gamlss)
 library(gamlss.data)
@@ -15,6 +14,7 @@ library(gamlss.dist)
 library(gamlss.foreach)
 library(gamlss.ggplots)
 library(readr)
+library(dplyr)
 ```
 
 ## Model 21 function - family: Box-Cox t (power transformation on predictor)
@@ -113,7 +113,7 @@ list_of_ct_regions <- colnames(dat.mri.ct)[3:ncol(dat.mri.ct)] # this is importa
 # basic cleaning for demographic variables
 demog_clean <- demog |>
   # select broad demographics
-  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  dplyr::select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
   # fill in race and sex first (avoid losing demog info due to filtering eventname)
   group_by(src_subject_id) %>%
   mutate(

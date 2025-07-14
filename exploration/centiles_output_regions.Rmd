@@ -113,7 +113,7 @@ list_of_ct_regions <- colnames(dat.mri.ct)[3:ncol(dat.mri.ct)] # this is importa
 # basic cleaning for demographic variables
 demog_clean <- demog |>
   # select broad demographics
-  dplyr::select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
+  select(src_subject_id, eventname, starts_with("demo_brthdat_v2"), demo_sex_v2, race_ethnicity) |>
   # fill in race and sex first (avoid losing demog info due to filtering eventname)
   group_by(src_subject_id) %>%
   mutate(
@@ -304,8 +304,14 @@ thickness_centile_female_wider <- thickness_centile_female %>%
 }
 print(final_file_male)
 
-write.csv(final_file_male, file = file.path("~/Library/CloudStorage/Box-Box/thickness/", "final_data_male.csv"), row.names = FALSE)
+write.csv(final_file_male, file = file.path("~/Library/CloudStorage/Box-Box/thickness", "final_data_male.csv"), row.names = FALSE)
 
-write.csv(final_file_female, file = file.path("~/Library/CloudStorage/Box-Box/thickness/", "final_data_female.csv"), row.names = FALSE)
+write.csv(final_file_female, file = file.path("~/Library/CloudStorage/Box-Box/thickness", "final_data_female.csv"), row.names = FALSE)
 
 ```
+```{r}
+write.csv(final_file_male, file = file.path("~/Library/CloudStorage/Box-Box/thickness", "final_data_male.csv"), row.names = FALSE)
+
+write.csv(final_file_female, file = file.path("~/Library/CloudStorage/Box-Box/thickness", "final_data_female.csv"), row.names = FALSE)
+```
+

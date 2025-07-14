@@ -45,59 +45,71 @@ thickness_male_RMSE <- thickness_centile_male_mean %>%
       RMSE_residual_year4 = sqrt(mean(residual_sqr_year4, na.rm = TRUE))
     )
     
-    bind_rows(race_summary, overall_summary)
+    bind_rows(race_RMSE, overall_RMSE)
+  }
+
+thickness_female_RMSE <- thickness_centile_female_mean %>%
+  mutate(
+    residual_sqr_baseline = residual_baseline_year_1_arm_1^2,
+    residual_sqr_year2 = residual_2_year_follow_up_y_arm_1^2,
+    residual_sqr_year4 = residual_4_year_follow_up_y_arm_1^2
+  ) %>%
+  {
+    race_RMSE <- group_by(., race_ethnicity) %>%
+      summarize(
+        RMSE_residual_baseline = sqrt(mean(residual_sqr_baseline, na.rm = TRUE)),
+        RMSE_residual_year2 = sqrt(mean(residual_sqr_year2, na.rm = TRUE)),
+        RMSE_residual_year4 = sqrt(mean(residual_sqr_year4, na.rm = TRUE)),
+        .groups = "drop"
+      )
+    
+    overall_RMSE <- summarize(., 
+      race_ethnicity = "All",
+      RMSE_residual_baseline = sqrt(mean(residual_sqr_baseline, na.rm = TRUE)),
+      RMSE_residual_year2 = sqrt(mean(residual_sqr_year2, na.rm = TRUE)),
+      RMSE_residual_year4 = sqrt(mean(residual_sqr_year4, na.rm = TRUE))
+    )
+    
+    bind_rows(race_RMSE, overall_RMSE)
   }
 ```
 
 ```{r}
-thickness_male_RMSE %>% 
-  ggplot(aes(race_ethnicity, RMSE_residual_baseline)) +
-  geom_col() +
-  theme_classic() +
-  labs(title = "Baseline RMSE of Residuals by Race/Ethnicity",
-       subtitle = "Males",
-       y = "RMSE Percentage" ) 
-```
-
-```{r}
-
-rmse_all_baseline <- thickness_male_RMSE %>% 
+rmse_all_baseline_male <- thickness_male_RMSE %>% 
   filter(race_ethnicity == "All") %>% 
   pull(RMSE_residual_baseline)
 
-rmse_all_year2 <- thickness_male_RMSE %>% 
+rmse_all_year2_male <- thickness_male_RMSE %>% 
   filter(race_ethnicity == "All") %>% 
   pull(RMSE_residual_year2)
 
-rmse_all_year4 <- thickness_male_RMSE %>% 
+rmse_all_year4_male <- thickness_male_RMSE %>% 
   filter(race_ethnicity == "All") %>% 
   pull(RMSE_residual_year4)
 
-# Prep the data
-plot_data <- thickness_male_RMSE %>%
+plot_data_male <- thickness_male_RMSE %>%
   mutate(
     RMSE_residual_baseline_pct = RMSE_residual_baseline * 100,
     RMSE_residual_year2_pct = RMSE_residual_year2 * 100,
     RMSE_residual_year4_pct = RMSE_residual_year4 * 100,
     color_group_baseline = case_when(
       race_ethnicity == "All" ~ "Average",
-      RMSE_residual_baseline > rmse_all_baseline ~ "Above Average",
+      RMSE_residual_baseline > rmse_all_baseline_male ~ "Above Average",
       TRUE ~ "Below Average"
     ),
     color_group_year2 = case_when(
       race_ethnicity == "All" ~ "Average",
-      RMSE_residual_year2 > rmse_all_year2 ~ "Above Average",
+      RMSE_residual_year2 > rmse_all_year2_male ~ "Above Average",
       TRUE ~ "Below Average"
     ),
     color_group_year4 = case_when(
       race_ethnicity == "All" ~ "Average",
-      RMSE_residual_year4 > rmse_all_year4 ~ "Above Average",
+      RMSE_residual_year4 > rmse_all_year4_male ~ "Above Average",
       TRUE ~ "Below Average"
     )
   )
 
-# Create the ggplot
-baseline_p <- plot_data %>%
+baseline_p_male <- plot_data_male %>%
   ggplot(aes(x = race_ethnicity, 
              y = RMSE_residual_baseline_pct,
              fill = color_group_baseline,
@@ -112,7 +124,7 @@ baseline_p <- plot_data %>%
     fill = ""
   )
 
-year2_p <- plot_data %>%
+year2_p_male <- plot_data_male %>%
   ggplot(aes(x = race_ethnicity, 
              y = RMSE_residual_year2_pct,
              fill = color_group_year2,
@@ -127,7 +139,7 @@ year2_p <- plot_data %>%
     fill = ""
   )
 
-year4_p <- plot_data %>%
+year4_p_male <- plot_data_male %>%
   ggplot(aes(x = race_ethnicity, 
              y = RMSE_residual_year4_pct,
              fill = color_group_year4,
@@ -142,8 +154,209 @@ year4_p <- plot_data %>%
     fill = ""
   )
 
-plotly::ggplotly(baseline_p, tooltip = "text")
-plotly::ggplotly(year2_p, tooltip = "text")
-plotly::ggplotly(year4_p, tooltip = "text")
+ggplotly(baseline_p_male, tooltip = "text")
+ggplotly(year2_p_male, tooltip = "text")
+ggplotly(year4_p_male, tooltip = "text")
+```
+```{r}
+rmse_all_baseline_female <- thickness_female_RMSE %>% 
+  filter(race_ethnicity == "All") %>% 
+  pull(RMSE_residual_baseline)
+
+rmse_all_year2_female <- thickness_female_RMSE %>% 
+  filter(race_ethnicity == "All") %>% 
+  pull(RMSE_residual_year2)
+
+rmse_all_year4_female <- thickness_female_RMSE %>% 
+  filter(race_ethnicity == "All") %>% 
+  pull(RMSE_residual_year4)
+
+plot_data_female <- thickness_female_RMSE %>%
+  mutate(
+    RMSE_residual_baseline_pct = RMSE_residual_baseline * 100,
+    RMSE_residual_year2_pct = RMSE_residual_year2 * 100,
+    RMSE_residual_year4_pct = RMSE_residual_year4 * 100,
+    color_group_baseline = case_when(
+      race_ethnicity == "All" ~ "Average",
+      RMSE_residual_baseline > rmse_all_baseline_female ~ "Above Average",
+      TRUE ~ "Below Average"
+    ),
+    color_group_year2 = case_when(
+      race_ethnicity == "All" ~ "Average",
+      RMSE_residual_year2 > rmse_all_year2_female ~ "Above Average",
+      TRUE ~ "Below Average"
+    ),
+    color_group_year4 = case_when(
+      race_ethnicity == "All" ~ "Average",
+      RMSE_residual_year4 > rmse_all_year4_female ~ "Above Average",
+      TRUE ~ "Below Average"
+    )
+  )
+
+baseline_p_female <- plot_data_female %>%
+  ggplot(aes(x = race_ethnicity, 
+             y = RMSE_residual_baseline_pct,
+             fill = color_group_baseline,
+             text = paste0("RMSE: ", round(RMSE_residual_baseline_pct, 2), "%"))) +
+  geom_col() +
+  scale_fill_manual(values = c("Above Average" = "#e94f58", "Below Average" = "#3a5d9c")) +
+  theme_classic() +
+  labs(
+    title = "Baseline RMSE of Residuals by Race/Ethnicity (Females)",
+    subtitle = "Females",
+    y = "RMSE Percentage",
+    fill = ""
+  )
+
+year2_p_female <- plot_data_female %>%
+  ggplot(aes(x = race_ethnicity, 
+             y = RMSE_residual_year2_pct,
+             fill = color_group_year2,
+             text = paste0("RMSE: ", round(RMSE_residual_year2_pct, 2), "%"))) +
+  geom_col() +
+  scale_fill_manual(values = c("Above Average" = "#e94f58", "Below Average" = "#3a5d9c")) +
+  theme_classic() +
+  labs(
+    title = "Year 2 RMSE of Residuals by Race/Ethnicity (Females)",
+    subtitle = "Females",
+    y = "RMSE Percentage",
+    fill = ""
+  )
+
+year4_p_female <- plot_data_female %>%
+  ggplot(aes(x = race_ethnicity, 
+             y = RMSE_residual_year4_pct,
+             fill = color_group_year4,
+             text = paste0("RMSE: ", round(RMSE_residual_year4_pct, 3), "%"))) +
+  geom_col() +
+  scale_fill_manual(values = c("Above Average" = "#e94f58", "Below Average" = "#3a5d9c")) +
+  theme_classic() +
+  labs(
+    title = "Year 4 RMSE of Residuals by Race/Ethnicity (Females)",
+    subtitle = "Females",
+    y = "RMSE Percentage",
+    fill = ""
+  )
+
+ggplotly(baseline_p_female, tooltip = "text")
+ggplotly(year2_p_female, tooltip = "text")
+ggplotly(year4_p_female, tooltip = "text")
 ```
 
+Wait I might have done this wrong
+
+```{r}
+thickness_male_RMSE_ind <- thickness_centile_male_mean %>% 
+  mutate(
+    residual_sqr_baseline = residual_baseline_year_1_arm_1^2,
+    residual_sqr_year2 = residual_2_year_follow_up_y_arm_1^2,
+    residual_sqr_year4 = residual_4_year_follow_up_y_arm_1^2
+  ) %>% 
+  rowwise() %>%
+  mutate(average_residual_sqr =
+           mean(c(residual_sqr_baseline, residual_sqr_year2,residual_sqr_year4), na.rm = TRUE)) %>% 
+  ungroup() %>%
+  {
+    race_RMSE <- group_by(., race_ethnicity) %>%
+      summarize(
+        RMSE_residual = sqrt(mean(average_residual_sqr, na.rm = TRUE)),
+        .groups = "drop"
+      )
+    
+    overall_RMSE <- summarize(., 
+      race_ethnicity = "All",
+      RMSE_residual = sqrt(mean(average_residual_sqr, na.rm = TRUE)),
+    )
+    
+    bind_rows(race_RMSE, overall_RMSE)
+  }
+
+rmse_all_male <- thickness_male_RMSE_ind %>% 
+  filter(race_ethnicity == "All") %>% 
+  pull(RMSE_residual)
+
+plot_all_data_male <- thickness_male_RMSE_ind %>%
+  mutate(
+    RMSE_residual_pct = RMSE_residual * 100,
+    color_group = case_when(
+      race_ethnicity == "All" ~ "Average",
+      RMSE_residual > rmse_all_female ~ "Above Average",
+      TRUE ~ "Below Average"
+    )
+  )
+
+p_male <- plot_all_data_male %>%
+  ggplot(aes(x = race_ethnicity, 
+             y = RMSE_residual_pct,
+             fill = color_group,
+             text = paste0("RMSE: ", round(RMSE_residual_pct, 2), "%"))) +
+  geom_col() +
+  scale_fill_manual(values = c("Above Average" = "#e94f58", "Below Average" = "#3a5d9c")) +
+  theme_classic() +
+  labs(
+    title = "RMSE of Residuals by Race/Ethnicity (Males)",
+    subtitle = "Males",
+    y = "RMSE Percentage",
+    fill = ""
+  )
+
+ggplotly(p_male, tooltip = "text")
+```
+
+```{r}
+thickness_female_RMSE_ind <- thickness_centile_female_mean %>% 
+  mutate(
+    residual_sqr_baseline = residual_baseline_year_1_arm_1^2,
+    residual_sqr_year2 = residual_2_year_follow_up_y_arm_1^2,
+    residual_sqr_year4 = residual_4_year_follow_up_y_arm_1^2
+  ) %>% 
+  rowwise() %>%
+  mutate(average_residual_sqr =
+           mean(c(residual_sqr_baseline, residual_sqr_year2,residual_sqr_year4), na.rm = TRUE)) %>% 
+  ungroup() %>%
+  {
+    race_RMSE <- group_by(., race_ethnicity) %>%
+      summarize(
+        RMSE_residual = sqrt(mean(average_residual_sqr, na.rm = TRUE)),
+        .groups = "drop"
+      )
+    
+    overall_RMSE <- summarize(., 
+      race_ethnicity = "All",
+      RMSE_residual = sqrt(mean(average_residual_sqr, na.rm = TRUE)),
+    )
+    
+    bind_rows(race_RMSE, overall_RMSE)
+  }
+
+rmse_all_female <- thickness_female_RMSE_ind %>% 
+  filter(race_ethnicity == "All") %>% 
+  pull(RMSE_residual)
+
+plot_all_data_female <- thickness_female_RMSE_ind %>%
+  mutate(
+    RMSE_residual_pct = RMSE_residual * 100,
+    color_group = case_when(
+      race_ethnicity == "All" ~ "Average",
+      RMSE_residual > rmse_all_female ~ "Above Average",
+      TRUE ~ "Below Average"
+    )
+  )
+
+p_female <- plot_all_data_female %>%
+  ggplot(aes(x = race_ethnicity, 
+             y = RMSE_residual_pct,
+             fill = color_group,
+             text = paste0("RMSE: ", round(RMSE_residual_pct, 2), "%"))) +
+  geom_col() +
+  scale_fill_manual(values = c("Above Average" = "#e94f58", "Below Average" = "#3a5d9c")) +
+  theme_classic() +
+  labs(
+    title = "RMSE of Residuals by Race/Ethnicity (Females)",
+    subtitle = "Females",
+    y = "RMSE Percentage",
+    fill = ""
+  )
+
+ggplotly(p_female, tooltip = "text")
+```

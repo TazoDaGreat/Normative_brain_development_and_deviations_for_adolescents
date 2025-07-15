@@ -1,5 +1,6 @@
 ---
 title: "residual_modeling"
+author: Jeffrey Choi
 output: html_document
 ---
 
@@ -21,6 +22,8 @@ thickness_centile_female_mean <- read.csv("thickness/final_data_female.csv") %>%
   filter(current_col_name == "smri_thick_cdk_mean.combat")
 ```
 Let's take a look at the racial bias of our gamlss error with RMSE
+
+Here, I take the RMSE at each timepoint and take the average for each race/ethnicity group
 
 ```{r}
 thickness_male_RMSE <- thickness_centile_male_mean %>%
@@ -244,6 +247,8 @@ ggplotly(year4_p_female, tooltip = "text")
 ```
 
 Wait I might have done this wrong
+
+Now we compute each individual's average RMSE score, then aggregate for race/ethnicity
 
 ```{r}
 thickness_male_RMSE_ind <- thickness_centile_male_mean %>% 

@@ -1,0 +1,96 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library(lme4)
+library(ggplot2)
+library(plotly)
+library(patchwork)
+
+
+```
+
+```{r}
+#KSADS <- read_csv("~/Library/CloudStorage/Box-Box/2025-07-15_JC_wide.csv") # contains internalizing and externalizing data
+brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv") # contains centile scores
+brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv")
+
+#View(brain_data_male)
+#View(brain_data_female)
+```
+
+
+
+#mixed linear model with random slope and intercept
+```{r}
+centile_and_internal_male <-brain_data_male%>%
+  select(cbcl_scr_syn_internal_r,centile_4_year_follow_up_y_arm_1) %>%
+  na.omit()
+
+summary(model_internal_male<- lm(data=brain_data_male , formula = cbcl_scr_syn_internal_r ~ centile_slope + centile_intercept))
+summary(model_external_male<- lm(data=brain_data_male , formula = cbcl_scr_syn_external_r ~ centile_slope + centile_intercept))
+
+summary(model_internal_female<- lm(data=brain_data_female , formula = cbcl_scr_syn_internal_r ~ centile_slope + centile_intercept))
+summary(model_external_female<- lm(data=brain_data_female , formula = cbcl_scr_syn_external_r ~ centile_slope + centile_intercept ))
+
+
+
+```
+
+```{r}
+slope_v_cbcl_male_internal <- brain_data_male %>% ggplot(aes(x = centile_slope, y = cbcl_scr_syn_internal_r)) + stat_smooth(method = "lm" )
+intercept_v_cbcl_male_internal <- brain_data_male %>% ggplot(aes(x = centile_intercept, y = cbcl_scr_syn_internal_r)) + stat_smooth(method = "lm")
+
+slope_v_cbcl_male_external <- brain_data_male %>% ggplot(aes(x = centile_slope, y = cbcl_scr_syn_external_r)) + stat_smooth(method = "lm" )
+intercept_v_cbcl_male_external <- brain_data_male %>% ggplot(aes(x = centile_intercept, y = cbcl_scr_syn_external_r)) + stat_smooth(method = "lm") 
+
+slope_v_cbcl_female_internal <- brain_data_female %>% ggplot(aes(x = centile_slope, y = cbcl_scr_syn_internal_r)) + stat_smooth(method = "lm" )
+intercept_v_cbcl_female_internal <- brain_data_female %>% ggplot(aes(x = centile_intercept, y = cbcl_scr_syn_internal_r)) + stat_smooth(method = "lm") 
+
+slope_v_cbcl_female_external <- brain_data_female %>% ggplot(aes(x = centile_slope, y = cbcl_scr_syn_external_r)) + stat_smooth(method = "lm" )
+intercept_v_cbcl_female_external <- brain_data_female %>% ggplot(aes(x = centile_intercept, y = cbcl_scr_syn_external_r)) + stat_smooth(method = "lm") 
+
+
+
+slope_v_cbcl + intercept_v_cbcl
+
+slope_v_cbcl_male_external + intercept_v_cbcl_male_external
+
+slope_v_cbcl_female_internal + intercept_v_cbcl_female_internal
+
+slope_v_cbcl_female_external + intercept_v_cbcl_female_external
+
+
+
+```
+
+```{r}
+plot_ly(brain_data_male, x = ~centile_slope, y =~cbcl_scr_syn_internal_r, z = ~centile_intercept, type = "scatter3d", mode = "markers")
+
+```
+
+
+
+
+```{r}
+plot(cbcl_scr_syn_internal_r ~ centile_slope + centile_intercept, data=brain_data_male, type = "n" ) ## take a different approach on plotting
+abline(model_internal_male)
+
+plot(cbcl_scr_syn_external_r ~ centile_slope + centile_intercept, data=brain_data_male, type = "n" ) ## take a different approach on plotting
+abline(model_internal_male)
+
+plot(cbcl_scr_syn_internal_r ~ centile_slope + centile_intercept, data=brain_data_female, type = "n" ) ## take a different approach on plotting
+abline(model_external_female)
+
+plot(cbcl_scr_syn_external_r ~ centile_slope + centile_intercept, data=brain_data_female, type = "n" ) ## take a different approach on plotting
+abline(model_external_female)
+```
+
+
+

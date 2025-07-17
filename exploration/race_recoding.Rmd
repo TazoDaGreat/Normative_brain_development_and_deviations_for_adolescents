@@ -186,6 +186,186 @@ write.csv(thickness_centile_male_mh, male_dataset_filepath, row.names = FALSE)
 write.csv(thickness_centile_female_mh, female_dataset_filepath, row.names = FALSE)
 ```
 
+
+RUN CODE SEPERATELY FOR SURFACE AREA
+```{r}
+data_dir <- '~/Library/CloudStorage/Box-Box/'
+
+setwd(data_dir)
+
+area_centile_male <- read.csv("area/final_data_male.csv")
+area_centile_female <- read.csv("area/final_data_female.csv")
+
+mh_data <- read.csv("ABCD Data/2025-07-01_JC.csv") # path to file created by Initial_Data_Cleaning.Rmd
+```
+```{r}
+# race and ethnicity variables 
+demog <- mh_data %>%
+  arrange(src_subject_id, eventname) %>%
+  group_by(src_subject_id) %>%
+  slice_head(n = 1) %>%
+  ungroup() %>%
+  select(src_subject_id, White_race, Black_race, AIAN_race, NHPI_race,
+         Asian_race, Other_race, Missing_race, demo_ethn_v2)
+
+# checks if there any inconsistencies in demographic features across eventname
+# should print out empty df
+mh_data %>%
+  group_by(src_subject_id) %>%
+  summarize(
+    sex_unique = n_distinct(demo_sex_v2, na.rm = TRUE),
+    white_unique = n_distinct(White_race, na.rm = TRUE),
+    black_unique = n_distinct(Black_race, na.rm = TRUE),
+    AIAN_unique = n_distinct(AIAN_race, na.rm = TRUE),
+    NHPI_unique = n_distinct(NHPI_race, na.rm = TRUE),
+    asian_unique = n_distinct(Asian_race, na.rm = TRUE),
+    missing_unique = n_distinct(Missing_race, na.rm = TRUE),
+    hispanic_unique = n_distinct(demo_ethn_v2, na.rm = TRUE),
+    other_unique = n_distinct(Other_race, na.rm = TRUE),
+  ) %>%
+  filter(sex_unique > 1 | white_unique > 1 | black_unique > 1 | AIAN_unique > 1
+         | NHPI_unique > 1 | asian_unique > 1 | missing_unique > 1
+         | other_unique > 1 | hispanic_unique > 1)
+
+# joins demographic info (race/ethnicity) to final thickness df
+area_centile_male <- area_centile_male %>% 
+  left_join(demog, by = "src_subject_id") %>% 
+  select(-race_ethnicity)
+
+area_centile_female <- area_centile_female %>% 
+  left_join(demog, by = "src_subject_id") %>% 
+  select(-race_ethnicity)
+```
+
+```{r}
+# now we look at mental health only at year 4
+mh_data_year_4 <- mh_data %>%
+  filter(eventname == "4_year_follow_up_y_arm_1") %>% 
+  # add relevant mental health outcomes (also income and parent edu at year 4)
+  select(src_subject_id, cbcl_scr_syn_internal_r, cbcl_scr_syn_external_r, cbcl_scr_syn_totprob_r,
+         SI_ever_p_y, NSSI_ever_p_y, MDD_ever_p_y, AnyDD_ever_p_y, demo_comb_income_v2_comb,
+         demo_prnt_ed_v2_comb)
+
+# merge mental health data to final thickness df 
+area_centile_male_mh <- area_centile_male %>% 
+  left_join(mh_data_year_4, by = "src_subject_id")
+
+area_centile_female_mh <- area_centile_female %>% 
+  left_join(mh_data_year_4, by = "src_subject_id")
+
+```
+
+Code block to create centile slope and intercept
+```{r}
+area_centile_male_mh <- area_centile_male_mh %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("centile"),
+    names_to = "centile_variable",
+    values_to = "centile"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(centile_variable)) %>%
+  select(src_subject_id, current_col_name, age, centile) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(centile ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(centile_intercept= x$coef[1],
+                                              centile_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, centile_intercept, centile_slope) %>%
+  right_join(area_centile_male_mh, by = c("src_subject_id", "current_col_name"))
+```
+
+```{r}
+area_centile_female_mh <- area_centile_female_mh %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("centile"),
+    names_to = "centile_variable",
+    values_to = "centile"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(centile_variable)) %>%
+  select(src_subject_id, current_col_name, age, centile) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(centile ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(centile_intercept= x$coef[1],
+                                              centile_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, centile_intercept, centile_slope) %>%
+  right_join(area_centile_female_mh, by = c("src_subject_id", "current_col_name"))
+```
+
+Do the same thing for raw values
+```{r}
+area_centile_male_mh <- area_centile_male_mh %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("outcome"),
+    names_to = "raw_variable",
+    values_to = "raw"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(raw_variable)) %>%
+  select(src_subject_id, current_col_name, age, raw) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(raw ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(raw_intercept= x$coef[1],
+                                              raw_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, raw_intercept, raw_slope) %>%
+  right_join(area_centile_male_mh, by = c("src_subject_id", "current_col_name"))
+```
+
+```{r}
+area_centile_female_mh <- area_centile_female_mh %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("outcome"),
+    names_to = "raw_variable",
+    values_to = "raw"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(raw_variable)) %>%
+  select(src_subject_id, current_col_name, age, raw) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(raw ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(raw_intercept= x$coef[1],
+                                              raw_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, raw_intercept, raw_slope) %>%
+  right_join(area_centile_female_mh, by = c("src_subject_id", "current_col_name"))
+```
+
+```{r}
+# save new final dataset
+male_dataset_filepath = "~/Library/CloudStorage/Box-Box/area/final_data_male_year4_mh.csv"
+female_dataset_filepath = "~/Library/CloudStorage/Box-Box/area/final_data_female_year4_mh.csv"
+
+write.csv(area_centile_male_mh, male_dataset_filepath, row.names = FALSE)
+write.csv(area_centile_female_mh, female_dataset_filepath, row.names = FALSE)
+```
+
 Example code if we want a race/ethnicity column for group by
 ```{r}
 # contains people multiple times for each race/ethnicity they are

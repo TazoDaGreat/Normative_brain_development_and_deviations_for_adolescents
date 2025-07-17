@@ -389,20 +389,37 @@ summary(lm_male_changes)
 baseline <- thickness_centile_male_wider %>%
   drop_na() %>% 
   mutate(centile_bin = cut(centile_baseline, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE), timepoint = "baseline"
-         )
+         ) %>% 
+  group_by(centile_bin, race_ethnicity) %>% 
+  summarize(count = n()) %>% 
+  mutate(percent = round((count / sum(count)) * 100,2)) %>% 
+  mutate(timepoint = "baseline")
+
+
 
 year_two <- thickness_centile_male_wider %>%
   drop_na() %>% 
-  mutate(centile_bin = cut(centile_year_2, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE), timepoint = "Year 2")
+  mutate(centile_bin = cut(centile_year_2, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE), timepoint = "Year 2") %>% 
+  group_by(centile_bin, race_ethnicity) %>% 
+  summarize(count = n()) %>% 
+  mutate(percent = round((count / sum(count)) * 100,2)) %>% 
+  mutate(timepoint = "Year 2")
 
 year_four <- thickness_centile_male_wider %>%
   drop_na() %>% 
-  mutate(centile_bin = cut(centile_year_4, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE),timepoint = "Year 4")
+  mutate(centile_bin = cut(centile_year_4, breaks = seq(0, 1, by = 0.25), include.lowest = TRUE),timepoint = "Year 4") %>% 
+  group_by(centile_bin, race_ethnicity) %>% 
+  summarize(count = n()) %>% 
+  mutate(percent = round((count / sum(count)) * 100,2)) %>% 
+  mutate(timepoint = "Year 4")
 
-  combined_df <- bind_rows(baseline, year_two, year_four)
+combined_df <- bind_rows(baseline, year_two, year_four)
+  
 
-ggplot(combined_df, aes(x= centile_bin, fill= race_ethnicity))+ 
-  geom_bar(position = "stack") + 
+
+
+final_plot <- ggplot(combined_df, aes(x= centile_bin, y = percent, fill= race_ethnicity))+ 
+  geom_col(position = "fill") + 
   facet_wrap(~ timepoint) +
   labs(
     title = "Centile Score Distribution by Race",
@@ -411,7 +428,9 @@ ggplot(combined_df, aes(x= centile_bin, fill= race_ethnicity))+
     y = "Individual Count"
   ) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ ##### plotly
 
+ggplotly(final_plot)
 # edit this plot to consider only certain races at a time
 thickness_centile_male_wider %>%
   drop_na() %>%             # edit desired races below
@@ -423,6 +442,7 @@ thickness_centile_male_wider %>%
   labs(title = "Individual Centile Scores by Race",
        x = "Centile",
        y = "Individual Count")
+
 ```
 
 ```{r}

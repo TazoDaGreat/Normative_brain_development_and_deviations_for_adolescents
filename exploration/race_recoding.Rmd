@@ -62,9 +62,9 @@ thickness_centile_female <- thickness_centile_female %>%
 mh_data_year_4 <- mh_data %>%
   filter(eventname == "4_year_follow_up_y_arm_1") %>% 
   # add relevant mental health outcomes (also income and parent edu at year 4)
-  select(src_subject_id, cbcl_scr_syn_internal_r, cbcl_scr_syn_external_r, cbcl_scr_syn_totprob_r,
-         SI_ever_p_y, NSSI_ever_p_y, MDD_ever_p_y, AnyDD_ever_p_y, demo_comb_income_v2_comb,
-         demo_prnt_ed_v2_comb)
+  select(src_subject_id, cbcl_scr_dsm5_depress_r, cbcl_scr_syn_internal_r, 
+         cbcl_scr_syn_external_r, cbcl_scr_syn_totprob_r, SI_ever_p_y, NSSI_ever_p_y,
+         MDD_ever_p_y, AnyDD_ever_p_y, demo_comb_income_v2_comb, demo_prnt_ed_v2_comb)
 
 # merge mental health data to final thickness df 
 thickness_centile_male_mh <- thickness_centile_male %>% 
@@ -242,9 +242,9 @@ area_centile_female <- area_centile_female %>%
 mh_data_year_4 <- mh_data %>%
   filter(eventname == "4_year_follow_up_y_arm_1") %>% 
   # add relevant mental health outcomes (also income and parent edu at year 4)
-  select(src_subject_id, cbcl_scr_syn_internal_r, cbcl_scr_syn_external_r, cbcl_scr_syn_totprob_r,
-         SI_ever_p_y, NSSI_ever_p_y, MDD_ever_p_y, AnyDD_ever_p_y, demo_comb_income_v2_comb,
-         demo_prnt_ed_v2_comb)
+  select(src_subject_id, cbcl_scr_dsm5_depress_r, cbcl_scr_syn_internal_r, 
+         cbcl_scr_syn_external_r, cbcl_scr_syn_totprob_r, SI_ever_p_y, NSSI_ever_p_y,
+         MDD_ever_p_y, AnyDD_ever_p_y, demo_comb_income_v2_comb, demo_prnt_ed_v2_comb)
 
 # merge mental health data to final thickness df 
 area_centile_male_mh <- area_centile_male %>% 
@@ -383,5 +383,37 @@ thickness_centile_male_mh %>%
                                  Asian_race = "Asian", Other_race = "Other",
                                  Missing_race = "Missing"))
 
+```
+
+```{r}
+thickness_centile_male_mh <- read.csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv")
+
+thickness_centile_male_mh %>% 
+  ggplot(aes(cbcl_scr_syn_internal_r)) +
+  geom_histogram() +
+  theme_classic()
+
+thickness_centile_male_mh %>% 
+  ggplot(aes(cbcl_scr_syn_external_r)) +
+  geom_histogram() +
+  theme_classic()
+
+
+thickness_centile_male_mh %>% 
+  pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
+         Asian_race, Other_race, Missing_race, demo_ethn_v2),
+    names_to = "race_ethnicity",
+    values_to = "indicator") %>% 
+  filter(indicator == 1) %>%
+  select(-indicator) %>% 
+  # recode race_ethnicity variable names 
+  mutate(race_ethnicity = recode(race_ethnicity, White_race = "White",
+                                 demo_ethn_v2 = "Hispanic", Black_race =  "Black",
+                                 AIAN_race =  "AIAN", NHPI_race =  "NHPI",
+                                 Asian_race = "Asian", Other_race = "Other",
+                                 Missing_race = "Missing")) %>% 
+  group_by(race_ethnicity) %>% 
+  summarize(out = cor(raw_slope, raw_intercept, use = "complete.obs"))
+  
 ```
 

@@ -92,5 +92,160 @@ plot(cbcl_scr_syn_external_r ~ centile_slope + centile_intercept, data=brain_dat
 abline(model_external_female)
 ```
 
+```{r}
+brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv") %>%
+  pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
+           Asian_race, Other_race, Missing_race, demo_ethn_v2),
+      names_to = "race_ethnicity",
+      values_to = "indicator") %>% 
+  filter(indicator == 1) %>%
+  select(-indicator) %>% 
+  # recode race_ethnicity variable names 
+  mutate(race_ethnicity = recode(race_ethnicity, White_race = "White",
+                                 demo_ethn_v2 = "Hispanic", Black_race =  "Black",
+                                 AIAN_race =  "AIAN", NHPI_race =  "NHPI",
+                                 Asian_race = "Asian", Other_race = "Other",
+                                 Missing_race = "Missing")) %>% 
+  mutate(race_ethnicity = as.factor(race_ethnicity),
+         demo_comb_income_v2_comb = as.factor(demo_comb_income_v2_comb),
+         demo_prnt_ed_v2_comb = as.factor(demo_prnt_ed_v2_comb)
+         ) %>% 
+  filter(!is.na(centile_slope))
+```
+
+Internalizing CBCL Score
+``` {r}
+#both centile slope and int as factors
+centile_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    centile_slope + centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+#both raw slope and int as factors
+raw_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just centile slope as factor
+centile_slope_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    centile_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just centile intercept as factor
+centile_intercept_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just raw slope as factor
+raw_slope_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    raw_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just raw intercept as factor
+raw_intercept_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+```
+
+External CBCL Score
+``` {r}
+#both centile slope and int as factors
+centile_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    centile_slope + centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+#both raw slope and int as factors
+raw_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just centile slope as factor
+centile_slope_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    centile_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just centile intercept as factor
+centile_intercept_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just raw slope as factor
+raw_slope_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    raw_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just raw intercept as factor
+raw_intercept_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+```
+
+Depression CBCL Score
+``` {r}
+#both centile slope and int as factors
+centile_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    centile_slope + centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+#both raw slope and int as factors
+raw_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just centile slope as factor
+centile_slope_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    centile_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just centile intercept as factor
+centile_intercept_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just raw slope as factor
+raw_slope_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    raw_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just raw intercept as factor
+raw_intercept_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+```
 
 

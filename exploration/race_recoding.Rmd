@@ -74,6 +74,55 @@ thickness_centile_female_mh <- thickness_centile_female %>%
   left_join(mh_data_year_4, by = "src_subject_id")
 
 ```
+Code block to create centile slope and intercept
+```{r}
+thickness_centile_male_mh <- thickness_centile_male_mh %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("centile"),
+    names_to = "centile_variable",
+    values_to = "centile"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(centile_variable)) %>%
+  select(src_subject_id, current_col_name, age, centile) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(centile ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(centile_intercept= x$coef[1],
+                                              centile_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, model, centile_intercept, centile_slope) %>%
+  right_join(thickness_centile_male_mh, by = c("src_subject_id", "current_col_name"))
+
+thickness_centile_female_mh <- thickness_centile_female_mh %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("centile"),
+    names_to = "centile_variable",
+    values_to = "centile"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(centile_variable)) %>%
+  select(src_subject_id, current_col_name, age, centile) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(centile ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(centile_intercept= x$coef[1],
+                                              centile_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, model, centile_intercept, centile_slope) %>%
+  right_join(thickness_centile_female_mh, by = c("src_subject_id", "current_col_name"))
+```
+
 
 ```{r}
 # save new final dataset

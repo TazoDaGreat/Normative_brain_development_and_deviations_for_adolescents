@@ -116,42 +116,42 @@ brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data
 Internalizing CBCL Score
 ``` {r}
 #both centile slope and int as factors
-centile_model <- glm(
+int_centile_model <- glm(
   cbcl_scr_syn_internal_r ~ 
     centile_slope + centile_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 #both raw slope and int as factors
-raw_model <- glm(
+int_raw_model <- glm(
   cbcl_scr_syn_internal_r ~ 
     raw_slope + raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just centile slope as factor
-centile_slope_model <- glm(
+int_centile_slope_model <- glm(
   cbcl_scr_syn_internal_r ~ 
     centile_slope +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just centile intercept as factor
-centile_intercept_model <- glm(
+int_centile_intercept_model <- glm(
   cbcl_scr_syn_internal_r ~ 
     centile_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just raw slope as factor
-raw_slope_model <- glm(
+int_raw_slope_model <- glm(
   cbcl_scr_syn_internal_r ~ 
     raw_slope +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just raw intercept as factor
-raw_intercept_model <- glm(
+int_raw_intercept_model <- glm(
   cbcl_scr_syn_internal_r ~ 
     raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
@@ -161,42 +161,42 @@ raw_intercept_model <- glm(
 External CBCL Score
 ``` {r}
 #both centile slope and int as factors
-centile_model <- glm(
+ext_centile_model <- glm(
   cbcl_scr_syn_external_r ~ 
     centile_slope + centile_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 #both raw slope and int as factors
-raw_model <- glm(
+ext_raw_model <- glm(
   cbcl_scr_syn_external_r ~ 
     raw_slope + raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just centile slope as factor
-centile_slope_model <- glm(
+ext_centile_slope_model <- glm(
   cbcl_scr_syn_external_r ~ 
     centile_slope +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just centile intercept as factor
-centile_intercept_model <- glm(
+ext_centile_intercept_model <- glm(
   cbcl_scr_syn_external_r ~ 
     centile_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just raw slope as factor
-raw_slope_model <- glm(
+ext_raw_slope_model <- glm(
   cbcl_scr_syn_external_r ~ 
     raw_slope +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just raw intercept as factor
-raw_intercept_model <- glm(
+ext_raw_intercept_model <- glm(
   cbcl_scr_syn_external_r ~ 
     raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
@@ -206,46 +206,102 @@ raw_intercept_model <- glm(
 Depression CBCL Score
 ``` {r}
 #both centile slope and int as factors
-centile_model <- glm(
+dep_centile_model <- glm(
   cbcl_scr_dsm5_depress_r ~ 
     centile_slope + centile_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 #both raw slope and int as factors
-raw_model <- glm(
+dep_raw_model <- glm(
   cbcl_scr_dsm5_depress_r ~ 
     raw_slope + raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just centile slope as factor
-centile_slope_model <- glm(
+dep_centile_slope_model <- glm(
   cbcl_scr_dsm5_depress_r ~ 
     centile_slope +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just centile intercept as factor
-centile_intercept_model <- glm(
+dep_centile_intercept_model <- glm(
   cbcl_scr_dsm5_depress_r ~ 
     centile_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just raw slope as factor
-raw_slope_model <- glm(
+dep_raw_slope_model <- glm(
   cbcl_scr_dsm5_depress_r ~ 
     raw_slope +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
 # just raw intercept as factor
-raw_intercept_model <- glm(
+dep_raw_intercept_model <- glm(
   cbcl_scr_dsm5_depress_r ~ 
     raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 ```
 
+```{r}
+library(broom)
+library(dplyr)
+
+extract_model_results <- function(model, model_type) {
+  tidy(model) %>%
+    select(term, estimate, p.value) %>%
+    mutate(model_type = model_type) %>%
+    relocate(model_type, term)
+}
+
+int_centile <- extract_model_results(int_centile_model, model_type = "Centile Slope + Intercept")
+int_raw <- extract_model_results(int_raw_model, "Raw Slope + Intercept")
+int_centile_slope <- extract_model_results(int_centile_slope_model, "Centile Slope Only")
+int_centile_intercept <- extract_model_results(int_centile_intercept_model, "Centile Intercept Only")
+int_raw_slope <- extract_model_results(int_raw_slope_model, "Raw Slope Only")
+int_raw_intercept <- extract_model_results(int_raw_intercept_model, "Raw Intercept Only")
+
+# EXTERNALIZING
+ext_centile <- extract_model_results(ext_centile_model, "Centile Slope + Intercept")
+ext_raw <- extract_model_results(ext_raw_model, "Raw Slope + Intercept")
+ext_centile_slope <- extract_model_results(ext_centile_slope_model, "Centile Slope Only")
+ext_centile_intercept <- extract_model_results(ext_centile_intercept_model, "Centile Intercept Only")
+ext_raw_slope <- extract_model_results(ext_raw_slope_model, "Raw Slope Only")
+ext_raw_intercept <- extract_model_results(ext_raw_intercept_model, "Raw Intercept Only")
+
+# DEPRESSION
+dep_centile <- extract_model_results(dep_centile_model, "Centile Slope + Intercept")
+dep_raw <- extract_model_results(dep_raw_model, "Raw Slope + Intercept")
+dep_centile_slope <- extract_model_results(dep_centile_slope_model, "Centile Slope Only")
+dep_centile_intercept <- extract_model_results(dep_centile_intercept_model, "Centile Intercept Only")
+dep_raw_slope <- extract_model_results(dep_raw_slope_model, "Raw Slope Only")
+dep_raw_intercept <- extract_model_results(dep_raw_intercept_model, "Raw Intercept Only")
+```
+
+```{r}
+library(gt)
+all_models <- bind_rows(
+  dep_centile, dep_raw, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept
+)
+
+all_models %>%
+  filter(!grepl("^demo_|race", term)) %>%
+  mutate(
+    estimate = round(estimate, 3),
+    p.value = scales::pvalue(p.value)
+  ) %>%
+  gt() %>%
+  tab_header(title = "Model Comparisons for CBCL Depression Score") %>%
+  cols_label(
+    model_type = "Model",
+    term = "Predictor",
+    estimate = "Beta",
+    p.value = "p-value"
+  )
+```
 

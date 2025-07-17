@@ -55,6 +55,24 @@ thickness_centile_male <- thickness_centile_male %>%
 thickness_centile_female <- thickness_centile_female %>% 
   left_join(demog, by = "src_subject_id") %>% 
   select(-race_ethnicity)
+
+# grabs most recent measure of household income and parental education
+latest_demog <- mh_data %>%
+  mutate(event_order = case_when(
+    eventname == "baseline_year_1_arm_1" ~ 0,
+    eventname == "1_year_follow_up_y_arm_1" ~ 1,
+    eventname == "2_year_follow_up_y_arm_1" ~ 2,
+    eventname == "3_year_follow_up_y_arm_1" ~ 3,
+    eventname == "4_year_follow_up_y_arm_1" ~ 4,
+    TRUE ~ NA_real_
+  )) %>% 
+  arrange(src_subject_id, desc(event_order)) %>%
+  group_by(src_subject_id) %>%
+  summarise(
+    demo_comb_income_v2_comb = first(na.omit(demo_comb_income_v2_comb)),
+    demo_prnt_ed_v2_comb = first(na.omit(demo_prnt_ed_v2_comb)),
+    .groups = "drop"
+  )
 ```
 
 ```{r}
@@ -64,7 +82,8 @@ mh_data_year_4 <- mh_data %>%
   # add relevant mental health outcomes (also income and parent edu at year 4)
   select(src_subject_id, cbcl_scr_dsm5_depress_r, cbcl_scr_syn_internal_r, 
          cbcl_scr_syn_external_r, cbcl_scr_syn_totprob_r, SI_ever_p_y, NSSI_ever_p_y,
-         MDD_ever_p_y, AnyDD_ever_p_y, demo_comb_income_v2_comb, demo_prnt_ed_v2_comb)
+         MDD_ever_p_y, AnyDD_ever_p_y) %>% 
+  left_join(latest_demog, by = "src_subject_id")
 
 # merge mental health data to final thickness df 
 thickness_centile_male_mh <- thickness_centile_male %>% 
@@ -244,7 +263,8 @@ mh_data_year_4 <- mh_data %>%
   # add relevant mental health outcomes (also income and parent edu at year 4)
   select(src_subject_id, cbcl_scr_dsm5_depress_r, cbcl_scr_syn_internal_r, 
          cbcl_scr_syn_external_r, cbcl_scr_syn_totprob_r, SI_ever_p_y, NSSI_ever_p_y,
-         MDD_ever_p_y, AnyDD_ever_p_y, demo_comb_income_v2_comb, demo_prnt_ed_v2_comb)
+         MDD_ever_p_y, AnyDD_ever_p_y)%>% 
+  left_join(latest_demog, by = "src_subject_id")
 
 # merge mental health data to final thickness df 
 area_centile_male_mh <- area_centile_male %>% 
@@ -398,6 +418,11 @@ thickness_centile_male_mh %>%
   geom_histogram() +
   theme_classic()
 
+thickness_centile_male_mh %>% 
+  ggplot(aes(cbcl_scr_dsm5_depress_r)) +
+  geom_histogram() +
+  theme_classic()
+
 
 thickness_centile_male_mh %>% 
   pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
@@ -413,7 +438,19 @@ thickness_centile_male_mh %>%
                                  Asian_race = "Asian", Other_race = "Other",
                                  Missing_race = "Missing")) %>% 
   group_by(race_ethnicity) %>% 
-  summarize(out = cor(raw_slope, raw_intercept, use = "complete.obs"))
+  summarize(raw_cor = cor(raw_slope, raw_intercept, use = "complete.obs"))
   
+
+thickness_centile_male_mh %>%
+  drop_na(centile_baseline_year_1_arm_1, centile_slope, centile_intercept) %>%
+  # Create quartile groups for baseline centile
+  mutate(centile_quartile = cut(
+    centile_baseline_year_1_arm_1,
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c("0-0.25", "0.25-0.5", "0.5-0.75", "0.75-1"),
+    include.lowest = TRUE
+  )) %>%
+  group_by(centile_quartile) %>%
+  summarize(raw_cor = cor(raw_slope, raw_intercept, use = "complete.obs"), .groups = "drop")
 ```
 

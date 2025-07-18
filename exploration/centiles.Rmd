@@ -257,6 +257,8 @@ thickness_harmonized_male$centile <- with(thickness_model21_male,
     sigma = thickness_harmonized_male$sigma,
     nu = thickness_harmonized_male$nu,
     tau = thickness_harmonized_male$tau))
+
+thickness_harmonized_male$z_score <- qnorm(thickness_harmonized_male$centile)
 ```
 
 

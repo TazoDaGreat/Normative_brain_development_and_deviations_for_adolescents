@@ -93,6 +93,9 @@ abline(model_external_female)
 ```
 
 ```{r}
+library(dplyr)
+library(tidyverse)
+
 brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv") %>%
   pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
            Asian_race, Other_race, Missing_race, demo_ethn_v2),
@@ -111,6 +114,81 @@ brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data
          demo_prnt_ed_v2_comb = as.factor(demo_prnt_ed_v2_comb)
          ) %>% 
   filter(!is.na(centile_slope))
+
+brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv") %>%
+  pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
+           Asian_race, Other_race, Missing_race, demo_ethn_v2),
+      names_to = "race_ethnicity",
+      values_to = "indicator") %>% 
+  filter(indicator == 1) %>%
+  select(-indicator) %>% 
+  # recode race_ethnicity variable names 
+  mutate(race_ethnicity = recode(race_ethnicity, White_race = "White",
+                                 demo_ethn_v2 = "Hispanic", Black_race =  "Black",
+                                 AIAN_race =  "AIAN", NHPI_race =  "NHPI",
+                                 Asian_race = "Asian", Other_race = "Other",
+                                 Missing_race = "Missing")) %>% 
+  mutate(race_ethnicity = as.factor(race_ethnicity),
+         demo_comb_income_v2_comb = as.factor(demo_comb_income_v2_comb),
+         demo_prnt_ed_v2_comb = as.factor(demo_prnt_ed_v2_comb)
+         ) %>% 
+  filter(!is.na(centile_slope))
+
+brain_data_male$z_score_baseline_year_1_arm_1 <- qnorm(brain_data_male$centile_baseline_year_1_arm_1)
+brain_data_male$z_score_2_year_follow_up_y_arm_1 <- qnorm(brain_data_male$centile_2_year_follow_up_y_arm_1)
+brain_data_male$z_score_4_year_follow_up_y_arm_1 <- qnorm(brain_data_male$centile_4_year_follow_up_y_arm_1)
+
+brain_data_female$z_score_baseline_year_1_arm_1 <- qnorm(brain_data_female$centile_baseline_year_1_arm_1)
+brain_data_female$z_score_2_year_follow_up_y_arm_1 <- qnorm(brain_data_female$centile_2_year_follow_up_y_arm_1)
+brain_data_female$z_score_4_year_follow_up_y_arm_1 <- qnorm(brain_data_female$centile_4_year_follow_up_y_arm_1)
+
+brain_data_male <- brain_data_male %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("z_score"),
+    names_to = "z_score_variable",
+    values_to = "z_score"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(z_score_variable)) %>%
+  select(src_subject_id, current_col_name, age, z_score) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(z_score ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(z_score_intercept= x$coef[1],
+                                              z_score_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, z_score_intercept, z_score_slope) %>%
+  right_join(brain_data_male, by = c("src_subject_id", "current_col_name"))
+
+
+brain_data_female <- brain_data_female %>%
+  pivot_longer(
+    cols = starts_with("interview_age"),
+    names_to = "age_variable",
+    values_to = "age"
+  ) %>%
+  pivot_longer(
+    cols = starts_with("z_score"),
+    names_to = "z_score_variable",
+    values_to = "z_score"
+  ) %>%
+  filter(parse_number(age_variable) == parse_number(z_score_variable)) %>%
+  select(src_subject_id, current_col_name, age, z_score) %>%
+  mutate(interview_age_centered = age - 108) %>% 
+  group_by(src_subject_id, current_col_name) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(z_score ~ interview_age_centered, data = .)),
+         result = map(model, function(x) list(z_score_intercept= x$coef[1],
+                                              z_score_slope = x$coef[2]))) %>% 
+  unnest_wider(result) %>% 
+  select(src_subject_id, current_col_name, z_score_intercept, z_score_slope) %>%
+  right_join(brain_data_female, by = c("src_subject_id", "current_col_name"))
+
 ```
 
 Internalizing CBCL Score
@@ -126,6 +204,13 @@ int_centile_model <- glm(
 int_raw_model <- glm(
   cbcl_scr_syn_internal_r ~ 
     raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+#both z score slope and int as factors
+int_z_score_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    z_score_slope + z_score_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
@@ -156,6 +241,20 @@ int_raw_intercept_model <- glm(
     raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
+
+# just z score slope as factor
+int_z_score_slope_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    z_score_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just z score intercept as factor
+int_z_score_intercept_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
 ```
 
 External CBCL Score
@@ -171,6 +270,13 @@ ext_centile_model <- glm(
 ext_raw_model <- glm(
   cbcl_scr_syn_external_r ~ 
     raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+#both z score slope and int as factors
+ext_z_score_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    z_score_slope + z_score_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
@@ -201,9 +307,23 @@ ext_raw_intercept_model <- glm(
     raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
+
+# just z score slope as factor
+ext_z_score_slope_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    z_score_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just z score intercept as factor
+ext_z_score_intercept_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
 ```
 
-Depression CBCL Score
+Depression CBCL Score cbcl_scr_dsm5_depress_r
 ``` {r}
 #both centile slope and int as factors
 dep_centile_model <- glm(
@@ -216,6 +336,13 @@ dep_centile_model <- glm(
 dep_raw_model <- glm(
   cbcl_scr_dsm5_depress_r ~ 
     raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+#both z score slope and int as factors
+dep_z_score_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    z_score_slope + z_score_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
@@ -246,62 +373,454 @@ dep_raw_intercept_model <- glm(
     raw_intercept +
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
+
+# just z score slope as factor
+dep_z_score_slope_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    z_score_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
+
+# just z score intercept as factor
+dep_z_score_intercept_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_male, family="poisson")
 ```
 
 ```{r}
 library(broom)
 library(dplyr)
+library(glmtoolbox)
 
 extract_model_results <- function(model, model_type) {
   tidy(model) %>%
     select(term, estimate, p.value) %>%
     mutate(model_type = model_type) %>%
+    mutate(AIC = AIC(model)) %>%
+    mutate(BIC = BIC(model)) %>%
+    mutate(adjR2 = adjR2(model)) %>% 
     relocate(model_type, term)
 }
 
 int_centile <- extract_model_results(int_centile_model, model_type = "Centile Slope + Intercept")
 int_raw <- extract_model_results(int_raw_model, "Raw Slope + Intercept")
+int_z_score <- extract_model_results(int_z_score_model, model_type = "Z-Score Slope + Intercept")
 int_centile_slope <- extract_model_results(int_centile_slope_model, "Centile Slope Only")
 int_centile_intercept <- extract_model_results(int_centile_intercept_model, "Centile Intercept Only")
 int_raw_slope <- extract_model_results(int_raw_slope_model, "Raw Slope Only")
 int_raw_intercept <- extract_model_results(int_raw_intercept_model, "Raw Intercept Only")
+int_z_score_slope <- extract_model_results(int_z_score_slope_model, "Z-Score Slope Only")
+int_z_score_intercept <- extract_model_results(int_z_score_intercept_model, "Z-Score Intercept Only")
 
 # EXTERNALIZING
 ext_centile <- extract_model_results(ext_centile_model, "Centile Slope + Intercept")
 ext_raw <- extract_model_results(ext_raw_model, "Raw Slope + Intercept")
+ext_z_score <- extract_model_results(ext_z_score_model, model_type = "Z-Score Slope + Intercept")
 ext_centile_slope <- extract_model_results(ext_centile_slope_model, "Centile Slope Only")
 ext_centile_intercept <- extract_model_results(ext_centile_intercept_model, "Centile Intercept Only")
 ext_raw_slope <- extract_model_results(ext_raw_slope_model, "Raw Slope Only")
 ext_raw_intercept <- extract_model_results(ext_raw_intercept_model, "Raw Intercept Only")
+ext_z_score_slope <- extract_model_results(ext_z_score_slope_model, "Z-Score Slope Only")
+ext_z_score_intercept <- extract_model_results(ext_z_score_intercept_model, "Z-Score Intercept Only")
 
 # DEPRESSION
 dep_centile <- extract_model_results(dep_centile_model, "Centile Slope + Intercept")
 dep_raw <- extract_model_results(dep_raw_model, "Raw Slope + Intercept")
+dep_z_score <- extract_model_results(dep_z_score_model, model_type = "Z-Score Slope + Intercept")
 dep_centile_slope <- extract_model_results(dep_centile_slope_model, "Centile Slope Only")
 dep_centile_intercept <- extract_model_results(dep_centile_intercept_model, "Centile Intercept Only")
 dep_raw_slope <- extract_model_results(dep_raw_slope_model, "Raw Slope Only")
 dep_raw_intercept <- extract_model_results(dep_raw_intercept_model, "Raw Intercept Only")
+dep_z_score_slope <- extract_model_results(dep_z_score_slope_model, "Z-Score Slope Only")
+dep_z_score_intercept <- extract_model_results(dep_z_score_intercept_model, "Z-Score Intercept Only")
 ```
 
 ```{r}
 library(gt)
-all_models <- bind_rows(
-  dep_centile, dep_raw, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept
+int_models <- bind_rows(
+  int_centile, int_raw, int_z_score, int_centile_slope, int_centile_intercept, int_raw_slope, int_raw_intercept,
+  int_z_score_slope, int_z_score_intercept
 )
 
-all_models %>%
+ext_models <- bind_rows(
+  ext_centile, ext_raw, ext_z_score, ext_centile_slope, ext_centile_intercept, ext_raw_slope, ext_raw_intercept,
+  ext_z_score_slope, ext_z_score_intercept
+)
+
+dep_models <- bind_rows(
+  dep_centile, dep_raw, dep_z_score, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept,
+  dep_z_score_slope, dep_z_score_intercept
+)
+
+male_int_models <- int_models %>%
   filter(!grepl("^demo_|race", term)) %>%
   mutate(
     estimate = round(estimate, 3),
     p.value = scales::pvalue(p.value)
   ) %>%
   gt() %>%
-  tab_header(title = "Model Comparisons for CBCL Depression Score") %>%
+  tab_header(title = "Model Comparisons for CBCL Depression Score (Male)") %>%
   cols_label(
     model_type = "Model",
     term = "Predictor",
     estimate = "Beta",
     p.value = "p-value"
   )
+
+male_ext_models <- ext_models %>%
+  filter(!grepl("^demo_|race", term)) %>%
+  mutate(
+    estimate = round(estimate, 3),
+    p.value = scales::pvalue(p.value)
+  ) %>%
+  gt() %>%
+  tab_header(title = "Model Comparisons for CBCL Depression Score (Male)") %>%
+  cols_label(
+    model_type = "Model",
+    term = "Predictor",
+    estimate = "Beta",
+    p.value = "p-value"
+  )
+
+male_dep_models <- dep_models %>%
+  filter(!grepl("^demo_|race", term)) %>%
+  mutate(
+    estimate = round(estimate, 3),
+    p.value = scales::pvalue(p.value)
+  ) %>%
+  gt() %>%
+  tab_header(title = "Model Comparisons for CBCL Depression Score (Male)") %>%
+  cols_label(
+    model_type = "Model",
+    term = "Predictor",
+    estimate = "Beta",
+    p.value = "p-value"
+  )
+
+library(webshot2)
+
+gtsave(male_int_models, filename = "~/Library/CloudStorage/Box-Box/male_int_models.png")
+gtsave(male_ext_models, filename = "~/Library/CloudStorage/Box-Box/male_ext_models.png")
+gtsave(male_dep_models, filename = "~/Library/CloudStorage/Box-Box/male_dep_models.png")
 ```
+
+
+Internalizing CBCL Score
+``` {r}
+#both centile slope and int as factors
+int_centile_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    centile_slope + centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+#both raw slope and int as factors
+int_raw_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+#both z score slope and int as factors
+int_z_score_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    z_score_slope + z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just centile slope as factor
+int_centile_slope_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    centile_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just centile intercept as factor
+int_centile_intercept_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just raw slope as factor
+int_raw_slope_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    raw_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just raw intercept as factor
+int_raw_intercept_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just z score slope as factor
+int_z_score_slope_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    z_score_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just z score intercept as factor
+int_z_score_intercept_model <- glm(
+  cbcl_scr_syn_internal_r ~ 
+    z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+```
+
+External CBCL Score
+``` {r}
+#both centile slope and int as factors
+ext_centile_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    centile_slope + centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+#both raw slope and int as factors
+ext_raw_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+#both z score slope and int as factors
+ext_z_score_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    z_score_slope + z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just centile slope as factor
+ext_centile_slope_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    centile_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just centile intercept as factor
+ext_centile_intercept_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just raw slope as factor
+ext_raw_slope_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    raw_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just raw intercept as factor
+ext_raw_intercept_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just z score slope as factor
+ext_z_score_slope_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    z_score_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just z score intercept as factor
+ext_z_score_intercept_model <- glm(
+  cbcl_scr_syn_external_r ~ 
+    z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+```
+
+Depression CBCL Score cbcl_scr_dsm5_depress_r
+``` {r}
+#both centile slope and int as factors
+dep_centile_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    centile_slope + centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+#both raw slope and int as factors
+dep_raw_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    raw_slope + raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+#both z score slope and int as factors
+dep_z_score_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    z_score_slope + z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just centile slope as factor
+dep_centile_slope_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    centile_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just centile intercept as factor
+dep_centile_intercept_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    centile_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just raw slope as factor
+dep_raw_slope_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    raw_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just raw intercept as factor
+dep_raw_intercept_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    raw_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just z score slope as factor
+dep_z_score_slope_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    z_score_slope +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+
+# just z score intercept as factor
+dep_z_score_intercept_model <- glm(
+  cbcl_scr_dsm5_depress_r ~ 
+    z_score_intercept +
+    race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+  data = brain_data_female, family="poisson")
+```
+
+```{r}
+library(broom)
+library(dplyr)
+library(glmtoolbox)
+
+extract_model_results <- function(model, model_type) {
+  tidy(model) %>%
+    select(term, estimate, p.value) %>%
+    mutate(model_type = model_type) %>%
+    mutate(AIC = AIC(model)) %>%
+    mutate(BIC = BIC(model)) %>%
+    mutate(adjR2 = adjR2(model)) %>% 
+    relocate(model_type, term)
+}
+
+int_centile <- extract_model_results(int_centile_model, model_type = "Centile Slope + Intercept")
+int_raw <- extract_model_results(int_raw_model, "Raw Slope + Intercept")
+int_z_score <- extract_model_results(int_z_score_model, model_type = "Z-Score Slope + Intercept")
+int_centile_slope <- extract_model_results(int_centile_slope_model, "Centile Slope Only")
+int_centile_intercept <- extract_model_results(int_centile_intercept_model, "Centile Intercept Only")
+int_raw_slope <- extract_model_results(int_raw_slope_model, "Raw Slope Only")
+int_raw_intercept <- extract_model_results(int_raw_intercept_model, "Raw Intercept Only")
+int_z_score_slope <- extract_model_results(int_z_score_slope_model, "Z-Score Slope Only")
+int_z_score_intercept <- extract_model_results(int_z_score_intercept_model, "Z-Score Intercept Only")
+
+# EXTERNALIZING
+ext_centile <- extract_model_results(ext_centile_model, "Centile Slope + Intercept")
+ext_raw <- extract_model_results(ext_raw_model, "Raw Slope + Intercept")
+ext_z_score <- extract_model_results(ext_z_score_model, model_type = "Z-Score Slope + Intercept")
+ext_centile_slope <- extract_model_results(ext_centile_slope_model, "Centile Slope Only")
+ext_centile_intercept <- extract_model_results(ext_centile_intercept_model, "Centile Intercept Only")
+ext_raw_slope <- extract_model_results(ext_raw_slope_model, "Raw Slope Only")
+ext_raw_intercept <- extract_model_results(ext_raw_intercept_model, "Raw Intercept Only")
+ext_z_score_slope <- extract_model_results(ext_z_score_slope_model, "Z-Score Slope Only")
+ext_z_score_intercept <- extract_model_results(ext_z_score_intercept_model, "Z-Score Intercept Only")
+
+# DEPRESSION
+dep_centile <- extract_model_results(dep_centile_model, "Centile Slope + Intercept")
+dep_raw <- extract_model_results(dep_raw_model, "Raw Slope + Intercept")
+dep_z_score <- extract_model_results(dep_z_score_model, model_type = "Z-Score Slope + Intercept")
+dep_centile_slope <- extract_model_results(dep_centile_slope_model, "Centile Slope Only")
+dep_centile_intercept <- extract_model_results(dep_centile_intercept_model, "Centile Intercept Only")
+dep_raw_slope <- extract_model_results(dep_raw_slope_model, "Raw Slope Only")
+dep_raw_intercept <- extract_model_results(dep_raw_intercept_model, "Raw Intercept Only")
+dep_z_score_slope <- extract_model_results(dep_z_score_slope_model, "Z-Score Slope Only")
+dep_z_score_intercept <- extract_model_results(dep_z_score_intercept_model, "Z-Score Intercept Only")
+```
+
+```{r}
+library(gt)
+int_models <- bind_rows(
+  int_centile, int_raw, int_z_score, int_centile_slope, int_centile_intercept, int_raw_slope, int_raw_intercept,
+  int_z_score_slope, int_z_score_intercept
+)
+
+ext_models <- bind_rows(
+  ext_centile, ext_raw, ext_z_score, ext_centile_slope, ext_centile_intercept, ext_raw_slope, ext_raw_intercept,
+  ext_z_score_slope, ext_z_score_intercept
+)
+
+dep_models <- bind_rows(
+  dep_centile, dep_raw, dep_z_score, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept,
+  dep_z_score_slope, dep_z_score_intercept
+)
+
+female_int_models <- int_models %>%
+  filter(!grepl("^demo_|race", term)) %>%
+  mutate(
+    estimate = round(estimate, 3),
+    p.value = scales::pvalue(p.value)
+  ) %>%
+  gt() %>%
+  tab_header(title = "Model Comparisons for CBCL Depression Score (Female)") %>%
+  cols_label(
+    model_type = "Model",
+    term = "Predictor",
+    estimate = "Beta",
+    p.value = "p-value"
+  )
+
+female_ext_models <- ext_models %>%
+  filter(!grepl("^demo_|race", term)) %>%
+  mutate(
+    estimate = round(estimate, 3),
+    p.value = scales::pvalue(p.value)
+  ) %>%
+  gt() %>%
+  tab_header(title = "Model Comparisons for CBCL Depression Score (Female)") %>%
+  cols_label(
+    model_type = "Model",
+    term = "Predictor",
+    estimate = "Beta",
+    p.value = "p-value"
+  )
+
+female_dep_models <- dep_models %>%
+  filter(!grepl("^demo_|race", term)) %>%
+  mutate(
+    estimate = round(estimate, 3),
+    p.value = scales::pvalue(p.value)
+  ) %>%
+  gt() %>%
+  tab_header(title = "Model Comparisons for CBCL Depression Score (Female)") %>%
+  cols_label(
+    model_type = "Model",
+    term = "Predictor",
+    estimate = "Beta",
+    p.value = "p-value"
+  )
+
+library(webshot2)
+
+gtsave(female_int_models, filename = "~/Library/CloudStorage/Box-Box/female_int_models.png")
+gtsave(female_ext_models, filename = "~/Library/CloudStorage/Box-Box/female_ext_models.png")
+gtsave(female_dep_models, filename = "~/Library/CloudStorage/Box-Box/female_dep_models.png")
+```
+
+
 

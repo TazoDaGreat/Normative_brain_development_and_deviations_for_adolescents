@@ -248,6 +248,10 @@ for(i in 9:ncol(thickness_harmonized)){ #ncol(thickness_harmonized) goes over th
   thickness_harmonized_male$fitted <- fitted(thickness_model21[[1]], what = "mu",type = "response")
   thickness_harmonized_male$residual <-
     thickness_harmonized_male$outcome - thickness_harmonized_male$fitted
+  
+  thickness_harmonized_male$z_score <- centiles.pred(
+    thickness_model21[[2]], xvalues = outcome, type = "z-scores"
+    )
 
   thickness_harmonized_female <- add_parameters(thickness_harmonized_female, thickness_model21[[2]]) ## female
   
@@ -262,13 +266,13 @@ for(i in 9:ncol(thickness_harmonized)){ #ncol(thickness_harmonized) goes over th
               select(src_subject_id, interview_age, eventname ),
             by = c("src_subject_id", "interview_age"))
 # creates centiles df for gender 
-thickness_centile_female <- thickness_harmonized_female%>%
+  thickness_centile_female <- thickness_harmonized_female%>%
   left_join(thickness_harmonized %>%
               filter(sex == 1) %>%
               select(src_subject_id, interview_age, eventname),
             by = c("src_subject_id", "interview_age"))
 
-rm(thickness_centile_male_wider)
+  rm(thickness_centile_male_wider)
 
   thickness_centile_male_wider <- thickness_centile_male %>%
   select(

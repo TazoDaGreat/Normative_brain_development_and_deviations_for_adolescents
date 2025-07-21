@@ -4,6 +4,8 @@ author: Jeffrey Choi
 output: html_document
 ---
 
+Plots on ggseg the residuals of each brain region by race, for all time and for each event time.
+Continue work on makin ghte plots interactive, plotly or 3dggseg?
 ```{r}
 library(readr)
 library(dplyr)

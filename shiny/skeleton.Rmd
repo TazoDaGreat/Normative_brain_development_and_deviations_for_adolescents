@@ -1,0 +1,112 @@
+```{r}
+library(dplyr)
+library(readr)
+library(gamlss)
+library(ggplot2)
+library(leaflet)
+library(shiny)
+library(sf)
+library(shiny)
+library(bslib)
+library(palmerpenguins)
+library(tidyr)
+
+```
+
+```{r}
+ui <- page_navbar(
+  title = "X Models for Adolescent Brain Development",
+
+  nav_panel("Home",
+    layout_columns(
+      col_widths = c(2, 4, 6),
+      card("About the Dashboard"),
+      card("Methods"),
+      card("Table 1. Sample Demographics", tableOutput("table") )
+    )
+  ),
+ 
+  #############       
+  nav_panel("Cortical Thickness",
+    layout_columns(col_widths = c(12, 6, 6),card(style = "height: 500px;", title ="sidebar = sidebar(renderTex",
+        selectInput("type2", "Select area of brain to model cortical thickness:", choices = c(" left Hemisphere Banks of Superior Temporal Sulcus",
+                                                                                                               " left Hemisphere caudalanteriorcingulate",
+                                                                                                               " left Hemisphere caudalmiddlefrontal",
+                                                                                                               " left Hemisphere cuneus",
+                                                                                                               " left Hemisphere entorhinal",
+                                                                                                               " left Hemisphere fusiform",
+                                                                                                               " left Hemisphere inferiorparietal",
+                                                                                                               " left Hemisphere inferiortemporal",
+                                                                                                               " left Hemisphere isthmuscingulate",
+                                                                                                               " left Hemisphere lateraloccipital",
+                                                                                                               " left Hemisphere lateralorbitofrontal",
+                                                                                                               " left Hemisphere lingual",
+                                                                                                               " left Hemisphere medialorbitofrontal",
+                                                                                                               " left Hemisphere middletemporal",
+                                                                                                               " left Hemisphere parahippocampal",
+                                                                                                               "you did not include all of the regions to be inluded here"
+                                                                                                               
+                                                                                                               ), selected ="left Hemisphere Banks of Superior Temporal Sulcus" )
+      )
+      ##########
+      ,card(title ="plot 1",style = "height: 2500px;", selectInput("type2", "Race", choices = c("sex_choices")),selectInput("type2", "sex", choices = c("sex_choices"))),
+      
+      #########
+      card(title ="plot 2",style = "height: 2500px;",selectInput("type2", "Race", choices = c("sex_choices")),selectInput("type2", "sex", choices = c("sex_choices")))
+      ),
+      leafletOutput("table")
+    )
+  ,
+
+  
+  nav_panel("Cortical Surface Area",
+    layout_columns(col_widths = c(12, 6, 6),card(style = "height: 500px;", title ="sidebar = sidebar(renderTex",
+        selectInput("type2", "Select area of brain to model cortical thickness:", choices = c(" left Hemisphere Banks of Superior Temporal Sulcus",
+                                                                                                               " left Hemisphere caudalanteriorcingulate",
+                                                                                                               " left Hemisphere caudalmiddlefrontal",
+                                                                                                               " left Hemisphere cuneus",
+                                                                                                               " left Hemisphere entorhinal",
+                                                                                                               " left Hemisphere fusiform",
+                                                                                                               " left Hemisphere inferiorparietal",
+                                                                                                               " left Hemisphere inferiortemporal",
+                                                                                                               " left Hemisphere isthmuscingulate",
+                                                                                                               " left Hemisphere lateraloccipital",
+                                                                                                               " left Hemisphere lateralorbitofrontal",
+                                                                                                               " left Hemisphere lingual",
+                                                                                                               " left Hemisphere medialorbitofrontal",
+                                                                                                               " left Hemisphere middletemporal",
+                                                                                                               " left Hemisphere parahippocampal",
+                                                                                                               "you did not include all of the regions to be inluded here"
+                                                                                                               
+                                                                                                               ), selected ="left Hemisphere Banks of Superior Temporal Sulcus" )
+      )
+      ##########
+      ,card(title ="plot 1",style = "height: 2500px;", selectInput("type2", "Race", choices = c("sex_choices")),selectInput("type2", "sex", choices = c("sex_choices"))),
+      
+      #########
+      card(title ="plot 2",style = "height: 2500px;",selectInput("type2", "Race", choices = c("sex_choices")),selectInput("type2", "sex", choices = c("sex_choices")))
+      ),
+      leafletOutput("thicknessMap")
+  ),
+
+  
+  
+  nav_panel("About Us",
+    layout_sidebar(
+      sidebar = sidebar(
+        selectInput("type4", "What event do you want to visualize", choices = c("kaka"), selected = "kaka")
+      ),
+      leafletOutput("aboutMap")
+    )
+  ),
+)
+
+
+  server <- function(input, output) {
+    output$table <- renderTable(df_one, striped = TRUE)
+  }
+  
+
+
+shinyApp(ui = ui, server = server)
+```

@@ -190,8 +190,9 @@ male_plot <- male_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.06, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.09, 0.2),
+    oob = scales::squish
   ) +
   theme_void()
 
@@ -216,8 +217,10 @@ female_plot <- female_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.06, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.06, 0.39),
+    breaks = c(0, 1, 2, 2.4, 3),
+    oob = scales::squish
   ) +
   theme_void()
 
@@ -316,8 +319,8 @@ male_baseline_plot <- male_baseline_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.05, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.05, 0.2)
   ) +
   theme_void()
 
@@ -334,8 +337,8 @@ male_year2_plot <- male_year2_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.05, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.05, 0.2)
   ) +
   theme_void()
 
@@ -352,8 +355,8 @@ male_year4_plot <- male_year4_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.05, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.05, 0.2)
   ) +
   theme_void()
 
@@ -451,8 +454,8 @@ female_baseline_plot <- female_baseline_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.03, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.03, 0.2)
   ) +
   theme_void()
 
@@ -469,8 +472,8 @@ female_year2_plot <- female_year2_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.03, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.03, 0.2)
   ) +
   theme_void()
 
@@ -487,8 +490,8 @@ female_year4_plot <- female_year4_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
-    limits = c(0.03, 0.39)
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(0.03, 0.2)
   ) +
   theme_void()
 
@@ -669,7 +672,8 @@ male_plot <- male_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits =  c(39, 1039)
   ) +
   theme_void()
 
@@ -688,7 +692,8 @@ female_plot <- female_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits =  c(40, 1068)
   ) +
   theme_void()
 
@@ -785,7 +790,8 @@ male_baseline_plot <- male_baseline_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits =  c(26, 900)
   ) +
   theme_void()
 
@@ -802,7 +808,8 @@ male_year2_plot <- male_year2_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits =  c(26, 900)
   ) +
   theme_void()
 
@@ -819,7 +826,8 @@ male_year4_plot <- male_year4_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits =  c(26, 900)
   ) +
   theme_void()
 
@@ -915,7 +923,8 @@ female_baseline_plot <- female_baseline_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(25, 900)
   ) +
   theme_void()
 
@@ -932,7 +941,8 @@ female_year2_plot <- female_year2_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits = c(25, 900)
   ) +
   theme_void()
 
@@ -949,7 +959,8 @@ female_year4_plot <- female_year4_joined %>%
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
     name = "RMSE in mm", 
-    colors = hcl.colors(10, "purple-yellow"), # use this to change color
+    colors = rev(hcl.colors(10, "purple-yellow")), # use this to change color
+    limits =  c(25, 900)
   ) +
   theme_void()
 

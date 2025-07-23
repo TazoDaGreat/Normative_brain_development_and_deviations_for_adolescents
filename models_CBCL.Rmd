@@ -498,7 +498,9 @@ male_dep_models <- dep_models %>%
     estimate = "Beta",
     p.value = "p-value"
   )
+```
 
+``` {r}
 library(webshot2)
 
 gtsave(male_int_models, filename = "~/Library/CloudStorage/Box-Box/male_int_models.png")
@@ -815,6 +817,9 @@ female_dep_models <- dep_models %>%
     p.value = "p-value"
   )
 
+```
+
+``` {r}
 library(webshot2)
 
 gtsave(female_int_models, filename = "~/Library/CloudStorage/Box-Box/female_int_models.png")

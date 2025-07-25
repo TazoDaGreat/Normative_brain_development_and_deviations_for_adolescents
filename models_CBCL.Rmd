@@ -210,7 +210,7 @@ int_raw_model <- glm(
 #both z score slope and int as factors
 int_z_score_model <- glm(
   cbcl_scr_syn_internal_r ~ 
-    z_score_slope + z_score_intercept +
+    z_score_slope + z_score_intercept + 
     race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
   data = brain_data_male, family="poisson")
 
@@ -396,11 +396,16 @@ library(glmtoolbox)
 
 extract_model_results <- function(model, model_type) {
   tidy(model) %>%
-    select(term, estimate, p.value) %>%
-    mutate(model_type = model_type) %>%
-    mutate(AIC = AIC(model)) %>%
-    mutate(BIC = BIC(model)) %>%
-    mutate(adjR2 = adjR2(model)) %>% 
+    select(term, estimate, std.error, p.value) %>%
+    filter(str_detect(term, "slope|intercept")) %>%  # only keep slope/intercept terms
+    mutate(
+      model_type = model_type,
+      AIC = AIC(model),
+      BIC = BIC(model),
+      adjR2 = adjR2(model),
+      conf.low = estimate - 1.96 * std.error,
+      conf.high = estimate + 1.96 * std.error
+    ) %>%
     relocate(model_type, term)
 }
 
@@ -440,18 +445,15 @@ dep_z_score_intercept <- extract_model_results(dep_z_score_intercept_model, "Z-S
 ```{r}
 library(gt)
 int_models <- bind_rows(
-  int_centile, int_raw, int_z_score, int_centile_slope, int_centile_intercept, int_raw_slope, int_raw_intercept,
-  int_z_score_slope, int_z_score_intercept
+  int_centile, int_raw, int_z_score, int_centile_slope, int_centile_intercept, int_raw_slope, int_raw_intercept, int_z_score_slope, int_z_score_intercept 
 )
 
 ext_models <- bind_rows(
-  ext_centile, ext_raw, ext_z_score, ext_centile_slope, ext_centile_intercept, ext_raw_slope, ext_raw_intercept,
-  ext_z_score_slope, ext_z_score_intercept
+  ext_centile, ext_raw, ext_z_score, ext_centile_slope, ext_centile_intercept, ext_raw_slope, ext_raw_intercept, ext_z_score_slope, ext_z_score_intercept 
 )
 
 dep_models <- bind_rows(
-  dep_centile, dep_raw, dep_z_score, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept,
-  dep_z_score_slope, dep_z_score_intercept
+  dep_centile, dep_raw, dep_z_score, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept, dep_z_score_slope, dep_z_score_intercept 
 )
 
 male_int_models <- int_models %>%
@@ -498,6 +500,12 @@ male_dep_models <- dep_models %>%
     estimate = "Beta",
     p.value = "p-value"
   )
+```
+
+```{r}
+male_int_models
+male_ext_models
+male_dep_models
 ```
 
 ``` {r}
@@ -714,11 +722,16 @@ library(glmtoolbox)
 
 extract_model_results <- function(model, model_type) {
   tidy(model) %>%
-    select(term, estimate, p.value) %>%
-    mutate(model_type = model_type) %>%
-    mutate(AIC = AIC(model)) %>%
-    mutate(BIC = BIC(model)) %>%
-    mutate(adjR2 = adjR2(model)) %>% 
+    select(term, estimate, std.error, p.value) %>%
+    filter(str_detect(term, "slope|intercept")) %>%  # only keep slope/intercept terms
+    mutate(
+      model_type = model_type,
+      AIC = AIC(model),
+      BIC = BIC(model),
+      adjR2 = adjR2(model),
+      conf.low = estimate - 1.96 * std.error,
+      conf.high = estimate + 1.96 * std.error
+    ) %>%
     relocate(model_type, term)
 }
 
@@ -758,18 +771,15 @@ dep_z_score_intercept <- extract_model_results(dep_z_score_intercept_model, "Z-S
 ```{r}
 library(gt)
 int_models <- bind_rows(
-  int_centile, int_raw, int_z_score, int_centile_slope, int_centile_intercept, int_raw_slope, int_raw_intercept,
-  int_z_score_slope, int_z_score_intercept
+  int_centile, int_raw, int_z_score, int_centile_slope, int_centile_intercept, int_raw_slope, int_raw_intercept, int_z_score_slope, int_z_score_intercept 
 )
 
 ext_models <- bind_rows(
-  ext_centile, ext_raw, ext_z_score, ext_centile_slope, ext_centile_intercept, ext_raw_slope, ext_raw_intercept,
-  ext_z_score_slope, ext_z_score_intercept
+  ext_centile, ext_raw, ext_z_score, ext_centile_slope, ext_centile_intercept, ext_raw_slope, ext_raw_intercept, ext_z_score_slope, ext_z_score_intercept 
 )
 
 dep_models <- bind_rows(
-  dep_centile, dep_raw, dep_z_score, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept,
-  dep_z_score_slope, dep_z_score_intercept
+  dep_centile, dep_raw, dep_z_score, dep_centile_slope, dep_centile_intercept, dep_raw_slope, dep_raw_intercept, dep_z_score_slope, dep_z_score_intercept 
 )
 
 female_int_models <- int_models %>%
@@ -817,6 +827,12 @@ female_dep_models <- dep_models %>%
     p.value = "p-value"
   )
 
+```
+
+```{r}
+female_int_models
+female_ext_models
+female_dep_models
 ```
 
 ``` {r}

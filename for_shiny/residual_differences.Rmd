@@ -180,24 +180,26 @@ male_plot_df <- thickness_male_RMSE_ind_region %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White") %>% 
+  filter(race_ethnicity != "Missing")
   
 male_joined <- brain_join(dk_df, male_plot_df, by = c("region", "hemi"))
 
 male_plot <- male_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
+             mapping = aes(fill = rel_diff * 100)) +
   labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#88b6f2", "white", "#ee827c", "#d73027")
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-28, 28)
   ) +
   theme_void()
 
@@ -212,30 +214,33 @@ female_plot_df <- thickness_female_RMSE_ind_region %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White") %>% 
+  filter(race_ethnicity != "Missing")
 
 female_joined <- brain_join(dk_df, female_plot_df, by = c("region", "hemi"))
 
 female_plot <- female_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
+             mapping = aes(fill = rel_diff * 100)) +
   labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#88b6f2", "white", "#ee827c", "#d73027")
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-28, 28)
   ) +
   theme_void()
 
 male_plot
-
+ggsave("~/Library/CloudStorage/Box-Box/male_ct_overall.png", plot = male_plot)
 female_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_ct_overall.png", plot = female_plot)
 ```
 
 At each visit
@@ -310,7 +315,8 @@ thickness_male_RMSE_baseline <- thickness_male_RMSE %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White") %>% 
+  filter(race_ethnicity != "Missing")
 
 thickness_male_RMSE_year2 <- thickness_male_RMSE %>% 
   filter(event_time == "Year 2") %>%
@@ -320,7 +326,8 @@ thickness_male_RMSE_year2 <- thickness_male_RMSE %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White") %>% 
+  filter(race_ethnicity != "Missing")
 
 thickness_male_RMSE_year4 <- thickness_male_RMSE %>% 
   filter(event_time == "Year 4") %>%
@@ -330,69 +337,73 @@ thickness_male_RMSE_year4 <- thickness_male_RMSE %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White") %>% 
+  filter(race_ethnicity != "Missing")
   
 male_baseline_joined <- brain_join(dk_df, thickness_male_RMSE_baseline, by = c("region", "hemi"))
 male_year2_joined <- brain_join(dk_df, thickness_male_RMSE_year2, by = c("region", "hemi"))
 male_year4_joined <- brain_join(dk_df, thickness_male_RMSE_year4, by = c("region", "hemi"))
 
 male_baseline_plot <- male_baseline_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
+             mapping = aes(fill = rel_diff * 100)) +
   labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Baseline Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "#88b6f2", "white", "#ee827c", "#d73027", "#d73027"),
-    limits = c(-0.91, 0.91)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-53, 53)
   ) +
   theme_void()
 
 male_year2_plot <- male_year2_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
+             mapping = aes(fill = rel_diff * 100)) +
   labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Year 2 Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "#88b6f2", "white", "#ee827c", "#d73027", "#d73027"),
-    limits = c(-0.91, 0.91)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-53, 53)
   ) +
   theme_void()
 
 male_year4_plot <- male_year4_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
+             mapping = aes(fill = rel_diff * 100)) +
   labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Year 4 Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "#88b6f2", "white", "#ee827c", "#d73027", "#d73027"),
-    limits = c(-0.91, 0.91)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-53, 53)
   ) +
   theme_void()
 
 male_baseline_plot
+ggsave("~/Library/CloudStorage/Box-Box/male_ct_baseline.png", plot = male_baseline_plot)
 male_year2_plot
+ggsave("~/Library/CloudStorage/Box-Box/male_ct_year2.png", plot = male_year2_plot)
 male_year4_plot
+ggsave("~/Library/CloudStorage/Box-Box/male_ct_year4.png", plot = male_year4_plot)
 ```
 
 Now Females
@@ -466,7 +477,8 @@ thickness_female_RMSE_baseline <- thickness_female_RMSE %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White") %>% 
+  filter(race_ethnicity != "Missing")
 
 thickness_female_RMSE_year2 <- thickness_female_RMSE %>% 
   filter(event_time == "Year 2") %>%
@@ -476,7 +488,8 @@ thickness_female_RMSE_year2 <- thickness_female_RMSE %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White")%>% 
+  filter(race_ethnicity != "Missing")
 
 thickness_female_RMSE_year4 <- thickness_female_RMSE %>% 
   filter(event_time == "Year 4") %>%
@@ -486,69 +499,73 @@ thickness_female_RMSE_year4 <- thickness_female_RMSE %>%
     diff = RMSE_residual - all_value,
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
-  filter(race_ethnicity != "White")
+  filter(race_ethnicity != "White")%>% 
+  filter(race_ethnicity != "Missing")
   
 female_baseline_joined <- brain_join(dk_df, thickness_female_RMSE_baseline, by = c("region", "hemi"))
 female_year2_joined <- brain_join(dk_df, thickness_female_RMSE_year2, by = c("region", "hemi"))
 female_year4_joined <- brain_join(dk_df, thickness_female_RMSE_year4, by = c("region", "hemi"))
 
 female_baseline_plot <- female_baseline_joined %>%
-  mutate(hover = paste0(region, ": ", round(RMSE_residual, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = RMSE_residual)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Baseline Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-1, 1)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-53, 53)
   ) +
   theme_void()
 
 female_year2_plot <- female_year2_joined %>%
-  mutate(hover = paste0(region, ": ", round(RMSE_residual, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = RMSE_residual)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Year 2 Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-1, 1)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-53, 53)
   ) +
   theme_void()
 
 female_year4_plot <- female_year4_joined %>%
-  mutate(hover = paste0(region, ": ", round(RMSE_residual, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = RMSE_residual)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Thickness)",
        subtitle = "Year 4 Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-1, 1)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-53, 53)
   ) +
   theme_void()
 
 female_baseline_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_ct_baseline.png", plot = female_baseline_plot)
 female_year2_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_ct_year2.png", plot = female_year2_plot)
 female_year4_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_ct_year4.png", plot = female_year4_plot)
 ```
 
 Surface Area Now
@@ -727,46 +744,47 @@ dk_df <- as_tibble(dk)
 male_joined <- brain_join(dk_df, area_male_RMSE_ind_region, by = c("region", "hemi"))
 
 male_plot <- male_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.31, 0.31)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-31, 31)
   ) +
   theme_void()
 
 female_joined <- brain_join(dk_df, area_female_RMSE_ind_region, by = c("region", "hemi"))
 
 female_plot <- female_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.26, 0.26)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-31, 31)
   ) +
   theme_void()
 
 male_plot
-
+ggsave("~/Library/CloudStorage/Box-Box/male_sa_overall.png", plot = male_plot)
 female_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_sa_overall.png", plot = female_plot)
 ```
 
 At each visit
@@ -869,62 +887,65 @@ male_year2_joined <- brain_join(dk_df, area_male_RMSE_year2, by = c("region", "h
 male_year4_joined <- brain_join(dk_df, area_male_RMSE_year4, by = c("region", "hemi"))
 
 male_baseline_plot <- male_baseline_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Baseline Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.61, 0.61)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-61, 61)
   ) +
   theme_void()
 
 male_year2_plot <- male_year2_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Year 2 Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.61, 0.61)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-61, 61)
   ) +
   theme_void()
 
 male_year4_plot <- male_year4_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Year 4 Male") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.61, 0.61)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-61, 61)
   ) +
   theme_void()
 
 male_baseline_plot
+ggsave("~/Library/CloudStorage/Box-Box/male_sa_baseline.png", plot = male_baseline_plot)
 male_year2_plot
+ggsave("~/Library/CloudStorage/Box-Box/male_sa_year2.png", plot = male_year2_plot)
 male_year4_plot
+ggsave("~/Library/CloudStorage/Box-Box/male_sa_year4.png", plot = male_year4_plot)
 ```
 
 Now Females
@@ -1026,60 +1047,63 @@ female_year2_joined <- brain_join(dk_df, area_female_RMSE_year2, by = c("region"
 female_year4_joined <- brain_join(dk_df, area_female_RMSE_year4, by = c("region", "hemi"))
 
 female_baseline_plot <- female_baseline_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Baseline Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.37, 0.37)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-61, 61)
   ) +
   theme_void()
 
 female_year2_plot <- female_year2_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Year 2 Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.37, 0.37)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-61, 61)
   ) +
   theme_void()
 
 female_year4_plot <- female_year4_joined %>%
-  mutate(hover = paste0(region, ": ", round(rel_diff, 3))) %>% 
+  mutate(hover = paste0(region, ": ", round(rel_diff, 4))) %>% 
   drop_na() %>% 
   group_by(race_ethnicity) %>%
   ggplot() +
   geom_brain(atlas = dk,
              position = position_brain(hemi ~ side),
-             mapping = aes(fill = rel_diff)) +
-  labs(title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Surface Area)",
+             mapping = aes(fill = rel_diff * 100)) +
+  labs(title = "Difference in Residuals from White (Cortical Surface Area)",
        subtitle = "Year 4 Female") +
   facet_wrap(~race_ethnicity) +
   scale_fill_gradientn(
-    name = "Normalized Difference",
-    colors = c("#4575b4", "#4575b4", "white", "#d73027", "#d73027"),
-    limits = c(-0.37, 0.37)
+    name = "Relative Deviation from White (%)",
+    colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
+    limits = c(-61, 61)
   ) +
   theme_void()
 
 female_baseline_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_sa_baseline.png", plot = female_baseline_plot)
 female_year2_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_sa_year2.png", plot = female_year2_plot)
 female_year4_plot
+ggsave("~/Library/CloudStorage/Box-Box/female_sa_year4.png", plot = female_year4_plot)
 ```

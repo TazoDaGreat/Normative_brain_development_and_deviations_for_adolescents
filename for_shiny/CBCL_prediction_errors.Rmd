@@ -205,8 +205,8 @@ plot_brain_residual_diff <- function(
       diff = RMSE_residual - all_value,
       rel_diff = (RMSE_residual - all_value) / all_value
     ) %>%
-    # drop white from analysis
-    filter(race_ethnicity != "White", race_ethnicity != "Missing")
+    # drop white and missings from analysis
+    filter(race_ethnicity != "White", race_ethnicity != "Missing", race_ethnicity != "NHPI")
   
   # compute color gradiant limits by most extreme rel_diff value
   min <- abs(min(plot_df$rel_diff))
@@ -546,3 +546,26 @@ plot_brain_residual_diff(
   subtitle = "Z-Score Predictors - Race, Income, and Education as Covariates"
 )
 ```
+
+Let's compare different predictors
+```{r}
+plot_brain_residual_diff(
+  brain_data = brain_data_male_predicted,
+  residual_col = "resid_cbcl_scr_syn_external_r_centile",
+  title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
+  subtitle = "Z-Score Predictors - No Covariates"
+)
+plot_brain_residual_diff(
+  brain_data = brain_data_male_predicted_w_race,
+  residual_col = "resid_cbcl_scr_syn_external_r_centile",
+  title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
+  subtitle = "Z-Score Predictors - Race as Covariate"
+)
+plot_brain_residual_diff(
+  brain_data = brain_data_male_predicted_w_covs,
+  residual_col = "resid_cbcl_scr_syn_external_r_centile",
+  title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
+  subtitle = "Z-Score Predictors - Race, Income, and Education as Covariates"
+)
+```
+

@@ -1,0 +1,59 @@
+---
+title: "chart_making"
+author: Jeffrey Choi
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(readr)
+library(gt)
+```
+
+```{r}
+male_brain_data <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv")
+female_brain_data <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv")
+
+male_brain_data <- male_brain_data %>%
+  mutate(sex = 2)
+
+female_brain_data <- female_brain_data %>%
+  mutate(sex = 1)
+
+# Then bind them together
+brain_data <- bind_rows(female_brain_data, male_brain_data)
+
+table <- brain_data %>% 
+  filter(current_col_name == "smri_thick_cdk_banksstslh.combat") %>% 
+  mutate(
+    has_baseline = !is.na(outcome_baseline_year_1_arm_1),
+    has_year2 = !is.na(outcome_2_year_follow_up_y_arm_1),
+    has_year4 = !is.na(outcome_4_year_follow_up_y_arm_1),
+    has_int = !is.na(cbcl_scr_syn_internal_r),
+    sex_label = ifelse(sex == 2, "Male", "Female")
+  ) %>% 
+  group_by(sex_label, race_ethnicity) %>% 
+  summarize(
+    baseline = sum(has_baseline),
+    year2 = sum(has_year2),
+    year4 = sum(has_year4),
+    int = sum(has_int),
+    .groups = "drop"
+  ) %>% 
+  arrange(sex_label, desc(baseline)) %>% 
+  gt() %>%
+  tab_header(title = "ABCD Data Demographics by Sex") %>%
+  cols_label(
+    sex_label = "Sex",
+    race_ethnicity = "Race/Ethnicity",
+    baseline = "Baseline",
+    year2 = "Year 2",
+    year4 = "Year 4",
+    int = "Child Behaviour Checklist Scores (CBCL)"
+  ) %>%
+  fmt_number(columns = c(baseline, year2, year4, int), decimals = 0)
+
+table
+```
+
+

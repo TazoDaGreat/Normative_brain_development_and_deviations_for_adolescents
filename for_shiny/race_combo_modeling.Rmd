@@ -997,6 +997,8 @@ for (combo in race_diff_combos) {
 ```{r}
 male_difference_plot_list[[63]]
 female_difference_plot_list[[63]]
+
+ggsave("~/Library/CloudStorage/Box-Box/female_thickness_difference.png", plot = female_difference_plot_list[[63]])
 ```
 
 Now for each timepoint

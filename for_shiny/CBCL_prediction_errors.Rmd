@@ -54,10 +54,7 @@ fit_models_for_region <- function(df_sub) {
       )
       
       if (!is.null(model)) { 
-        preds <- predict(model, type = "response") # save predicted values
-        actual <- model$y # grab actual values
-        
-        pred_col <- paste0("pred_", outcome, "_", pred_type) # make predicted values col
+        resid <- resid(model, type = "pearson")
         resid_col <- paste0("resid_", outcome, "_", pred_type) # make residual values col
         
         # adds predicteds and residuals to df_sub matching model rows
@@ -65,8 +62,7 @@ fit_models_for_region <- function(df_sub) {
         idx <- match(rownames(df_model_rows), rownames(df_sub))
         
         # saves predicteds and residuals into df_sub
-        df_sub[[pred_col]][idx] <- preds
-        df_sub[[resid_col]][idx] <- preds - actual
+        df_sub[[resid_col]][idx] <- resid
       }
     }
   }
@@ -551,21 +547,59 @@ Let's compare different predictors
 ```{r}
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
-  residual_col = "resid_cbcl_scr_syn_external_r_centile",
+  residual_col = "resid_cbcl_scr_syn_external_r_raw",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - No Covariates"
+  subtitle = "Raw Predictors - No Covariates"
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
-  residual_col = "resid_cbcl_scr_syn_external_r_centile",
+  residual_col = "resid_cbcl_scr_syn_external_r_raw",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - Race as Covariate"
+  subtitle = "Raw Predictors - Race as Covariate"
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
-  residual_col = "resid_cbcl_scr_syn_external_r_centile",
+  residual_col = "resid_cbcl_scr_syn_external_r_raw",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Raw Predictors - Race, Income, and Education as Covariates"
 )
 ```
+
+```{r}
+
+region_spec <-brain_data_male_predicted %>% 
+  filter(current_col_name == "smri_thick_cdk_banksstslh.combat") %>% 
+  drop_na(cbcl_scr_dsm5_depress_r)
+
+model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept,
+             data = region_spec,
+             family = "poisson")
+
+region_spec$resid <- resid(model, type = "pearson")
+
+region_spec_2 <-brain_data_male_predicted %>% 
+  filter(current_col_name == "smri_thick_cdk_rrmdfrlh.combat") %>% 
+  drop_na(cbcl_scr_dsm5_depress_r)
+
+model_2 <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept,
+             data = region_spec,
+             family = "poisson")
+
+region_spec_2$resid <- resid(model_2, type = "pearson")
+
+region_spec %>% 
+  ggplot(aes(x = centile_slope, y = resid)) +
+  geom_point()
+
+region_spec %>%
+  summarize(mean = mean(resid, na.rm = TRUE))
+
+region_spec_2 %>% 
+  ggplot(aes(x = centile_slope, y = resid)) +
+  geom_point()
+
+region_spec_2 %>%
+  summarize(mean = mean(resid, na.rm = TRUE))
+```
+
 

@@ -1,5 +1,5 @@
 ---
-title: "chart_making"
+title: "demographics"
 author: Jeffrey Choi
 output: html_document
 ---

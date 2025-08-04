@@ -95,7 +95,8 @@ make_difference_plot <- function(data, race_subset, title, subtitle, gradient_li
     ggplot() +
     geom_brain(atlas = dk,
                position = position_brain(hemi ~ side),
-               mapping = aes(fill = rel_diff)) +
+               mapping = aes(fill = rel_diff),
+               hemi = "right") +
     labs(title = title,
          subtitle = subtitle) +
     facet_wrap(~race_ethnicity) +
@@ -998,7 +999,7 @@ for (combo in race_diff_combos) {
 male_difference_plot_list[[63]]
 female_difference_plot_list[[63]]
 
-ggsave("~/Library/CloudStorage/Box-Box/female_thickness_difference.png", plot = female_difference_plot_list[[63]])
+ggsave("~/Library/CloudStorage/Box-Box/male_thickness_difference.png", plot = male_difference_plot_list[[63]])
 ```
 
 Now for each timepoint

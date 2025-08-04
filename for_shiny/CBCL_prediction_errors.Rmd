@@ -16,8 +16,39 @@ library(forcats)
 ```
 
 ```{r}
-brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv")
-brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv")
+brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_male_year4_mh.csv")
+brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_female_year4_mh.csv")
+```
+
+```{r}
+# contains people multiple times for each race/ethnicity they are
+brain_data_male <- brain_data_male %>% 
+  pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
+         Asian_race, Other_race, Missing_race, demo_ethn_v2),
+    names_to = "race_ethnicity",
+    values_to = "indicator") %>% 
+  filter(indicator == 1) %>%
+  select(-indicator) %>% 
+  # recode race_ethnicity variable names 
+  mutate(race_ethnicity = recode(race_ethnicity, White_race = "White",
+                                 demo_ethn_v2 = "Hispanic", Black_race =  "Black",
+                                 AIAN_race =  "AIAN", NHPI_race =  "NHPI",
+                                 Asian_race = "Asian", Other_race = "Other",
+                                 Missing_race = "Missing")) 
+
+brain_data_female <- brain_data_female %>% 
+  pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
+         Asian_race, Other_race, Missing_race, demo_ethn_v2),
+    names_to = "race_ethnicity",
+    values_to = "indicator") %>% 
+  filter(indicator == 1) %>%
+  select(-indicator) %>% 
+  # recode race_ethnicity variable names 
+  mutate(race_ethnicity = recode(race_ethnicity, White_race = "White",
+                                 demo_ethn_v2 = "Hispanic", Black_race =  "Black",
+                                 AIAN_race =  "AIAN", NHPI_race =  "NHPI",
+                                 Asian_race = "Asian", Other_race = "Other",
+                                 Missing_race = "Missing"))
 ```
 
 Let's first look at psychopathology prediction models without race and other demogs as covariates,
@@ -71,6 +102,10 @@ fit_models_for_region <- function(df_sub) {
 
 region_dfs_predicted <- lapply(region_dfs, fit_models_for_region) # run function over all regions
 brain_data_male_predicted <- bind_rows(region_dfs_predicted) # combine region df list back into one
+
+region_dfs <- split(brain_data_female, brain_data_female$current_col_name)
+region_dfs_predicted <- lapply(region_dfs, fit_models_for_region) # run function over all regions
+brain_data_female_predicted <- bind_rows(region_dfs_predicted) # combine region df list back into one
 ```
 
 Let's plot the race/ethnicity distribution in our models (who is in our data)
@@ -131,6 +166,26 @@ brain_data_male_predicted %>%
 ```
 
 ```{r}
+brain_data_female_predicted %>%
+  pivot_longer(
+    cols = c("cbcl_scr_syn_internal_r", "cbcl_scr_syn_external_r", "cbcl_scr_dsm5_depress_r"),
+    names_to = "cbcl_score",
+    values_to = "value"
+  ) %>%
+  group_by(race_ethnicity, cbcl_score) %>%
+  summarize(
+    Q1 = quantile(value, 0.25, na.rm = TRUE),
+    Q2 = quantile(value, 0.50, na.rm = TRUE),
+    Q3 = quantile(value, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+brain_data_male_predicted %>%
+  filter(if_any(c("cbcl_scr_syn_internal_r", "cbcl_scr_syn_external_r", "cbcl_scr_dsm5_depress_r"), ~ !is.na(.))) %>%
+  nrow()
+```
+
+```{r}
 dk_abv_to_names = read.csv("~/Documents/GitHub/Normative_brain_development_and_deviations_for_adolescents/exploration/additional_files/dk_abv_to_names.csv")
 # returns region name from abcd abv
 get_name <- function(dk_abv_to_names, abv){
@@ -145,7 +200,8 @@ plot_brain_residual_diff <- function(
   brain_data,
   residual_col,
   title = "Residual Deviation from White",
-  subtitle = "Male"
+  subtitle = "Male",
+  limits
   ) {
   # saves relevent col name as symbol?
   # idk why this works, thank you chatgpt
@@ -175,7 +231,7 @@ plot_brain_residual_diff <- function(
     } %>%
     # sets up region name cols for ggseg 
     mutate(
-      abv = str_remove(region_raw, "^smri_thick_cdk_"),
+      abv = str_remove(region_raw, "^smri_area_cdk_"),
       abv = str_remove(abv, "\\.combat$"),
       hemi = case_when(
         str_detect(abv, "lh$") ~ "left",
@@ -184,30 +240,30 @@ plot_brain_residual_diff <- function(
       )
     ) %>%
     rowwise() %>%
+    filter(!abv %in% 
+           c("total", "totallh", "totalrh")) %>% 
     mutate(region = get_name(dk_abv_to_names, abv)) %>%
     ungroup()
   
   # we can't need to plot these
   plot_df <- processed %>%
-    filter(!region %in% c(
-      "Mean cortical thickness for whole brain", 
-      "Mean cortical thickness for left hemisphere",
-      "Mean cortical thickness for right hemisphere")
-    ) %>%
+    filter(!abv %in% 
+           c("total", "totallh", "totalrh")) %>%
     # find percent difference from white
     group_by(region_raw) %>%
     mutate(
       all_value = RMSE_residual[race_ethnicity == "White"],
       diff = RMSE_residual - all_value,
-      rel_diff = (RMSE_residual - all_value) / all_value
+      rel_diff = (RMSE_residual - all_value) / all_value,
     ) %>%
     # drop white and missings from analysis
-    filter(race_ethnicity != "White", race_ethnicity != "Missing", race_ethnicity != "NHPI")
+    filter(race_ethnicity != "White", race_ethnicity != "Missing", race_ethnicity != "NHPI",
+           race_ethnicity != "All", race_ethnicity != "Other", race_ethnicity != "Black", 
+           race_ethnicity != "Hispanic", race_ethnicity != "Asian",)
   
   # compute color gradiant limits by most extreme rel_diff value
-  min <- abs(min(plot_df$rel_diff))
-  max <- abs(max(plot_df$rel_diff))
-  limit <- floor((max(min, max) * 100) + 1)
+  min <- abs(min(plot_df$rel_diff)) * 100
+  max <- abs(max(plot_df$rel_diff)) * 100
 
   joined <- brain_join(dk_df, plot_df, by = c("region", "hemi"))
 
@@ -226,8 +282,8 @@ plot_brain_residual_diff <- function(
     facet_wrap(~race_ethnicity) +
     scale_fill_gradientn(
       name = "Relative Deviation from White (%)",
-      colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
-      limits = c(-limit, limit)
+      colors = c("#23171B", "#443983", "#31688E", "#21918C", "#35B779", "#90D743", "#FDE725", "#F39C12", "#D7191C"),
+      limits = limits
     ) +
     theme_void()
 }
@@ -239,64 +295,86 @@ plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_internal_r_centile",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - No Demographic Covariates"
+  subtitle = "Centile Predictors - No Demographic Covariates",
+  limits = c(8,12)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_internal_r_raw",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - No Demographic Covariates"
+  subtitle = "Raw Predictors - No Demographic Covariates",
+  limits = c(8,12)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - No Demographic Covariates"
+  subtitle = "Z-Score Predictors - No Demographic Covariates",
+  limits = c(8,12)
 )
 ```
 
 ```{r}
 # Externalizing Scores
-plot_brain_residual_diff(
+plot1<-plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - No Demographic Covariates"
+  subtitle = "Centile Predictors - No Demographic Covariates",
+  limits = c(5,12)
 )
-plot_brain_residual_diff(
+plot2<-plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_external_r_raw",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - No Demographic Covariates"
+  subtitle = "Raw Predictors - No Demographic Covariates",
+  limits = c(5,12)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_external_r_z_score",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - No Demographic Covariates"
+  subtitle = "Z-Score Predictors - No Demographic Covariates",
+  limits = c(3,14)
 )
+
+plot1
+plot2
+
+ggsave("~/Library/CloudStorage/Box-Box/aian_centile_no_covs.png", plot = plot1)
+ggsave("~/Library/CloudStorage/Box-Box/aian_raw_no_covs.png", plot = plot2)
 ```
 
 ```{r}
 # Depression Scores
-plot_brain_residual_diff(
+plot1<-plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - No Demographic Covariates"
+  subtitle = "Centile Predictors - No Demographic Covariates",
+  limits = c(4.4,8.8)
 )
-plot_brain_residual_diff(
+plot2<-plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - No Demographic Covariates"
+  subtitle = "Raw Predictors - No Demographic Covariates",
+  limits = c(4.4,8.8)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - No Demographic Covariates"
+  subtitle = "Z-Score Predictors - No Demographic Covariates",
+  limits = c(4.4,8.8)
 )
+# 
+# 
+plot1
+plot2
+# 
+ggsave("~/Library/CloudStorage/Box-Box/aian_centile_no_covs.png", plot = plot1)
+ggsave("~/Library/CloudStorage/Box-Box/aian_raw_no_covs.png", plot = plot2)
 ```
 
 Now lets consider just race in our glm
@@ -353,6 +431,10 @@ fit_models_for_region_w_race <- function(df_sub) {
 
 region_dfs_predicted_w_race <- lapply(region_dfs, fit_models_for_region_w_race) # run function over all regions
 brain_data_male_predicted_w_race <- bind_rows(region_dfs_predicted_w_race) # combine region df list back into one
+
+region_dfs <- split(brain_data_female, brain_data_female$current_col_name)
+region_dfs_predicted_w_race <- lapply(region_dfs, fit_models_for_region_w_race) # run function over all regions
+brain_data_female_predicted_w_race <- bind_rows(region_dfs_predicted_w_race) # combine region df list back into one
 ```
 
 ```{r}
@@ -361,19 +443,22 @@ plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_syn_internal_r_centile",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - Race as Covariate"
+  subtitle = "Centile Predictors - Race as Covariate",
+  limits = c(9,12)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_syn_internal_r_raw",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race as Covariate"
+  subtitle = "Raw Predictors - Race as Covariate",
+  limits = c(9,12)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - Race as Covariate"
+  subtitle = "Z-Score Predictors - Race as Covariate",
+  limits = c(9,12)
 )
 ```
 
@@ -383,19 +468,22 @@ plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - Race as Covariate"
+  subtitle = "Centile Predictors - Race as Covariate",
+  limits = c(7,11)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_syn_external_r_raw",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race as Covariate"
+  subtitle = "Raw Predictors - Race as Covariate",
+  limits = c(7,11)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_syn_external_r_z_score",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - Race as Covariate"
+  subtitle = "Z-Score Predictors - Race as Covariate",
+  limits = c(7,11)
 )
 ```
 
@@ -405,19 +493,22 @@ plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - Race as Covariate"
+  subtitle = "Centile Predictors - Race as Covariate",
+  limits = c(5,7.7)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race as Covariate"
+  subtitle = "Raw Predictors - Race as Covariate",
+  limits = c(5,7.7)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - Race as Covariate"
+  subtitle = "Z-Score Predictors - Race as Covariate",
+  limits = c(5,7.7)
 )
 ```
 
@@ -475,6 +566,10 @@ fit_models_for_region_w_covs <- function(df_sub) {
 
 region_dfs_predicted_w_covs <- lapply(region_dfs, fit_models_for_region_w_covs) # run function over all regions
 brain_data_male_predicted_w_covs <- bind_rows(region_dfs_predicted_w_covs) # combine region df list back into one
+
+region_dfs <- split(brain_data_female, brain_data_female$current_col_name)
+region_dfs_predicted_w_covs <- lapply(region_dfs, fit_models_for_region_w_covs) # run function over all regions
+brain_data_female_predicted_w_covs <- bind_rows(region_dfs_predicted_w_covs) # combine region df list back into one
 ```
 
 ```{r}
@@ -483,19 +578,22 @@ plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_syn_internal_r_centile",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Centile Predictors - Race, Income, and Education as Covariates",
+  limits = c(9,11)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_syn_internal_r_raw",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Raw Predictors - Race, Income, and Education as Covariates",
+  limits = c(9,11)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
   title = "Male CBCL Internalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Z-Score Predictors - Race, Income, and Education as Covariates",
+  limits = c(9,11)
 )
 ```
 
@@ -505,13 +603,15 @@ plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Centile Predictors - Race, Income, and Education as Covariates",
+  limits = c(8, 12)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_syn_external_r_raw",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Raw Predictors - Race, Income, and Education as Covariates",
+  limits = c(8, 12)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
@@ -527,79 +627,145 @@ plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Centile Predictors - Race, Income, and Education as Covariates",
+  limits = c(-8,10)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Raw Predictors - Race, Income, and Education as Covariates",
+  limits = c(-8,10)
 )
 plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Z-Score Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Z-Score Predictors - Race, Income, and Education as Covariates",
+  limits = c(-8,10)
 )
 ```
 
 Let's compare different predictors
 ```{r}
-plot_brain_residual_diff(
+plot1<-plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
-  residual_col = "resid_cbcl_scr_syn_external_r_raw",
+  residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - No Covariates"
+  subtitle = "Centile Predictors - No Covariates",
+  limits = c(0, 4)
 )
-plot_brain_residual_diff(
+plot2<-plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
-  residual_col = "resid_cbcl_scr_syn_external_r_raw",
+  residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race as Covariate"
+  subtitle = "Centile Predictors - Race as Covariate",
+   limits = c(0, 4)
 )
-plot_brain_residual_diff(
+plot3<-plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
-  residual_col = "resid_cbcl_scr_syn_external_r_raw",
+  residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Raw Predictors - Race, Income, and Education as Covariates"
+  subtitle = "Centile Predictors - Race, Income, and Education as Covariates",
+  limits = c(0, 4)
 )
+
+
+plot1
+plot3
+
+ggsave("~/Library/CloudStorage/Box-Box/hispanic_centile_no_covs.png", plot = plot1)
+ggsave("~/Library/CloudStorage/Box-Box/hispanic_centile_covs.png", plot = plot3)
 ```
 
 ```{r}
+mean_thickness_predicted <- brain_data_male_predicted %>% 
+  filter(current_col_name == "smri_thick_cdk_mean.combat") %>% 
+  drop_na(cbcl_scr_dsm5_depress_r, demo_comb_income_v2_comb, demo_prnt_ed_v2_comb)
 
-region_spec <-brain_data_male_predicted %>% 
-  filter(current_col_name == "smri_thick_cdk_banksstslh.combat") %>% 
-  drop_na(cbcl_scr_dsm5_depress_r)
-
-model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept,
-             data = region_spec,
+no_cov_model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept,
+             data = mean_thickness_predicted,
              family = "poisson")
+mean_thickness_predicted$no_cov_resid <- resid(no_cov_model, type = "pearson")
 
-region_spec$resid <- resid(model, type = "pearson")
-
-region_spec_2 <-brain_data_male_predicted %>% 
-  filter(current_col_name == "smri_thick_cdk_rrmdfrlh.combat") %>% 
-  drop_na(cbcl_scr_dsm5_depress_r)
-
-model_2 <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept,
-             data = region_spec,
+race_model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept + race_ethnicity,
+             data = mean_thickness_predicted,
              family = "poisson")
+mean_thickness_predicted$race_resid <- resid(race_model, type = "pearson")
 
-region_spec_2$resid <- resid(model_2, type = "pearson")
+race_cov_model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept + race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+             data = mean_thickness_predicted,
+             family = "poisson")
+mean_thickness_predicted$race_cov_resid <- resid(race_cov_model, type = "pearson")
 
-region_spec %>% 
-  ggplot(aes(x = centile_slope, y = resid)) +
-  geom_point()
+mean_thickness_predicted %>%
+  filter(race_ethnicity != "Missing") %>% 
+  pivot_longer(cols = ends_with("resid"), names_to = "model_type", values_to = "value") %>% 
+  mutate(model_type = recode(model_type,
+                             no_cov_resid = "No Covariates Model",
+                             race_resid = "Race as Covariate",
+                             race_cov_resid = "Race, Income, and Education as Covariates")) %>% 
+  ggplot(aes(x = race_ethnicity, y = value, fill = model_type)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  labs(title = "Residuals by Race and Model Covariates",
+       subtitle = "Looking at Mean Corticol Thickness for Males",
+       x = "Race", y = "Residual Value",
+       fill = "Model Covariates") +
+  theme_minimal() 
 
-region_spec %>%
-  summarize(mean = mean(resid, na.rm = TRUE))
-
-region_spec_2 %>% 
-  ggplot(aes(x = centile_slope, y = resid)) +
-  geom_point()
-
-region_spec_2 %>%
-  summarize(mean = mean(resid, na.rm = TRUE))
 ```
 
+```{r}
+mean_thickness_predicted <- brain_data_female_predicted %>% 
+  filter(current_col_name == "smri_thick_cdk_mean.combat") %>% 
+  drop_na(cbcl_scr_dsm5_depress_r, demo_comb_income_v2_comb, demo_prnt_ed_v2_comb)
+
+no_cov_model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept,
+             data = mean_thickness_predicted,
+             family = "poisson")
+mean_thickness_predicted$no_cov_resid <- resid(no_cov_model, type = "pearson")
+
+race_model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept + race_ethnicity,
+             data = mean_thickness_predicted,
+             family = "poisson")
+mean_thickness_predicted$race_resid <- resid(race_model, type = "pearson")
+
+race_cov_model <- glm(formula = cbcl_scr_dsm5_depress_r ~ centile_slope + centile_intercept + race_ethnicity + demo_comb_income_v2_comb + demo_prnt_ed_v2_comb,
+             data = mean_thickness_predicted,
+             family = "poisson")
+mean_thickness_predicted$race_cov_resid <- resid(race_cov_model, type = "pearson")
+
+mean_thickness_predicted %>%
+  filter(race_ethnicity != "Missing") %>% 
+  pivot_longer(cols = ends_with("resid"), names_to = "model_type", values_to = "value") %>% 
+  mutate(model_type = recode(model_type,
+                             no_cov_resid = "No Covariates Model",
+                             race_resid = "Race as Covariate",
+                             race_cov_resid = "Race, Income, and Education as Covariates")) %>% 
+  ggplot(aes(x = race_ethnicity, y = value, fill = model_type)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  labs(title = "Residuals by Race and Model Covariates",
+       subtitle = "Looking at Mean Corticol Thickness for Females",
+       x = "Race", y = "Residual Value",
+       fill = "Model Covariates") +
+  theme_minimal() 
+```
+
+```{r}
+plot_brain_residual_diff(
+  brain_data = brain_data_male_predicted,
+  residual_col = "resid_cbcl_scr_syn_external_r_raw",
+  title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
+  subtitle = "Raw Predictors - No Covariates",
+  limits=c(-13, 13)
+)
+
+plot_brain_residual_diff(
+  brain_data = brain_data_male_predicted_w_covs,
+  residual_col = "resid_cbcl_scr_syn_external_r_raw",
+  title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
+  subtitle = "Raw Predictors - Race, Income, and Education as Covariates",
+  limits=c(-13, 13)
+)
+```
 

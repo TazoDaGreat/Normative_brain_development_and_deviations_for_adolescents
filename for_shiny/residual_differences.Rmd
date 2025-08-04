@@ -181,7 +181,8 @@ male_plot_df <- thickness_male_RMSE_ind_region %>%
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
   filter(race_ethnicity != "White") %>% 
-  filter(race_ethnicity != "Missing")
+  filter(race_ethnicity != "Missing") %>% 
+  filter(race_ethnicity != "All")
   
 male_joined <- brain_join(dk_df, male_plot_df, by = c("region", "hemi"))
 
@@ -199,7 +200,7 @@ male_plot <- male_joined %>%
   scale_fill_gradientn(
     name = "Relative Deviation from White (%)",
     colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
-    limits = c(-28, 28)
+    limits = c(-32, 32)
   ) +
   theme_void()
 
@@ -215,7 +216,8 @@ female_plot_df <- thickness_female_RMSE_ind_region %>%
     rel_diff = (RMSE_residual - all_value) / all_value
   ) %>% 
   filter(race_ethnicity != "White") %>% 
-  filter(race_ethnicity != "Missing")
+  filter(race_ethnicity != "Missing") %>% 
+  filter(race_ethnicity != "All")
 
 female_joined <- brain_join(dk_df, female_plot_df, by = c("region", "hemi"))
 
@@ -233,14 +235,23 @@ female_plot <- female_joined %>%
   scale_fill_gradientn(
     name = "Relative Deviation from White (%)",
     colors = c("#4575b4", "#78acf1", "white", "#ef726b", "#d73027"),
-    limits = c(-28, 28)
+    limits = c(-32, 32)
   ) +
   theme_void()
 
 male_plot
-ggsave("~/Library/CloudStorage/Box-Box/male_ct_overall.png", plot = male_plot)
+ggsave("~/Library/CloudStorage/Box-Box/male_thickness_difference.png", plot = male_plot)
 female_plot
-ggsave("~/Library/CloudStorage/Box-Box/female_ct_overall.png", plot = female_plot)
+ggsave("~/Library/CloudStorage/Box-Box/male_thickness_difference.png", plot = female_plot)
+```
+```{r}
+male_plot_df %>% 
+  group_by(race_ethnicity) %>% 
+  summarise(mean(rel_diff))
+
+female_plot_df %>% 
+  group_by(race_ethnicity) %>% 
+  summarise(mean(rel_diff))
 ```
 
 At each visit

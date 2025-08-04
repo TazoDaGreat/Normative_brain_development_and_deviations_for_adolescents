@@ -1,0 +1,183 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(gamlss)
+library(gamlss.data)
+library(gamlss.dist)
+library(gamlss.foreach)
+library(gamlss.ggplots)
+library(readxl)
+library(readr)
+library(plotly)
+library(rlist)
+library(mgcv)
+```
+
+```{r}
+female_df <-read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv")
+male_df <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv")
+
+#female_df <-read_csv("~/Library/CloudStorage/Box-Box/area/final_data_female_area.csv")
+#male_df <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_male_area.csv")
+```
+
+```{r}
+female_long <- female_df %>%
+pivot_longer(cols = c(interview_age_baseline_year_1_arm_1,interview_age_2_year_follow_up_y_arm_1,interview_age_4_year_follow_up_y_arm_1), names_to = "interview", values_to = "interview_age" ) %>%
+pivot_longer(cols = c(outcome_baseline_year_1_arm_1,outcome_2_year_follow_up_y_arm_1,outcome_4_year_follow_up_y_arm_1), names_to = "interview_thickness", values_to = "thickness" ) %>%
+pivot_longer(cols = c(centile_baseline_year_1_arm_1,centile_2_year_follow_up_y_arm_1,centile_4_year_follow_up_y_arm_1), names_to = "centile_year", values_to = "centile") %>%
+filter(!is.na(interview_age), !is.na(thickness), is.finite(interview_age), is.finite(thickness))
+
+female_long$current_col_name <- gsub(".combat","", female_long$current_col_name )
+regions <- unique(female_long$current_col_name)
+#print(regions)
+```
+
+```{r}
+male_long <- male_df %>%
+pivot_longer(cols = c(interview_age_baseline_year_1_arm_1,interview_age_2_year_follow_up_y_arm_1,interview_age_4_year_follow_up_y_arm_1), names_to = "interview", values_to = "interview_age" ) %>%
+pivot_longer(cols = c(outcome_baseline_year_1_arm_1,outcome_2_year_follow_up_y_arm_1,outcome_4_year_follow_up_y_arm_1), names_to = "interview_thickness", values_to = "thickness" ) %>%
+pivot_longer(cols = c(centile_baseline_year_1_arm_1,centile_2_year_follow_up_y_arm_1,centile_4_year_follow_up_y_arm_1), names_to = "centile_year", values_to = "centile") %>%
+filter(!is.na(interview_age), !is.na(thickness), is.finite(interview_age), is.finite(thickness))
+male_long$current_col_name <- gsub(".combat","", male_long$current_col_name )
+```
+
+```{r}
+data_dic <- read_excel("~/Library/CloudStorage/Box-Box/ABCD Tabulated Data/data_dict_5_1 (enriquealmeidaruiz@gmail.com).xlsx")  %>%
+filter(table_label == "sMRI - Cortical Thickness (Desikan) [Youth]") %>%
+select(var_name,var_label)
+data_dic$var_label <- gsub("Cortical thickness in mm of APARC ROI ","", data_dic$var_label)
+data_dic$var_label <- gsub("Mean cortical thickness in mm for ","", data_dic$var_label)
+data_dic$var_label <- gsub("lh-","left Hemisphere ", data_dic$var_label)
+data_dic$var_label <- gsub("rh-","right Hemisphere ", data_dic$var_label)
+data_dic$area <- data_dic$var_name
+data_dic$area <- gsub("thick", "area", data_dic$var_name)
+savehistory("~/Documents/UMN/shiny/shiny_iHate/png_of_regions/Untitled.Rhistory")
+length(regions)
+
+
+```
+
+#### female ########
+```{r}
+thick <- data_dic$var_name
+area <- data_dic$area 
+#print(thickness)
+#print(area[[9]])
+
+for(i in 1:length(regions)){
+  
+mock<- female_long %>% filter(current_col_name == thick[[i]])
+
+plot_percentiles <- data.frame(src_subject_id = character(),thickness = integer(), interview_age = integer(), centile = integer(), Percent = character() )
+
+plot_percentiles <- bind_rows(
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.975)) %>%
+    mutate(Percent = "97.5%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.75)) %>%
+    mutate(Percent = "75%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.5)) %>%
+    mutate(Percent = "50%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.25)) %>%
+    mutate(Percent = "25%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.025)) %>%
+    mutate(Percent = "2.5%")
+)
+
+
+png(paste0(data_dic$var_label[[i]],"_female_All.png"), width = 800, height = 600, res = 100)
+plot_graphs <- ggplot(mock, aes(x = interview_age, y = thickness)) +
+  geom_point(alpha = 1/10, color = "lightblue") +
+  geom_smooth(data = plot_percentiles,
+              aes(x = interview_age, y = centile, color = Percent),
+              method = "gam", se = FALSE, linewidth = 1, linetype = "dashed") +
+  labs(title = paste0(data_dic$var_label[[i]]," Thickness for female "),
+       y = "thickness (mm)", x = "Age in Years") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title.x = element_text(hjust = 0.5),
+    axis.title.y = element_text(hjust = 0.5)) +
+  guides(color = guide_legend(reverse = TRUE))
+print(plot_graphs)
+dev.off()
+}
+```
+
+Area
+```{r}
+thickness <- data_dic$var_name
+area <- data_dic$area 
+#print(thickness)
+#print(area[[9]])
+
+for(i in 1:length(regions)){
+  
+mock<- male_long %>% filter(current_col_name == area[[i]])
+
+plot_percentiles <- data.frame(src_subject_id = character(),thickness = integer(), interview_age = integer(), centile = integer(), Percent = character() )
+
+plot_percentiles <- bind_rows(
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.975)) %>%
+    mutate(Percent = "97.5%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.75)) %>%
+    mutate(Percent = "75%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.5)) %>%
+    mutate(Percent = "50%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.25)) %>%
+    mutate(Percent = "25%"),
+
+  mock %>%
+    group_by(interview_age) %>%
+    summarise(centile = quantile(thickness, probs = 0.025)) %>%
+    mutate(Percent = "2.5%")
+)
+
+
+png(paste0(data_dic$var_label[[i]],"_male_","All",".png"), width = 800, height = 600, res = 100)
+plot_graphs <- ggplot(mock, aes(x = interview_age, y = thickness)) +
+  geom_point(alpha = 1/10, color = "lightblue") +
+  geom_smooth(data = plot_percentiles,
+              aes(x = interview_age, y = centile, color = Percent),
+              method = "gam", se = FALSE, linewidth = 1, linetype = "dashed") +
+  labs(title = paste0(data_dic$var_label[[i]]," Area for Male "),
+       y = "Area (mm²)", x = "Age in Years") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title.x = element_text(hjust = 0.5),
+    axis.title.y = element_text(hjust = 0.5))+
+  guides(color = guide_legend(reverse = TRUE))
+print(plot_graphs)
+dev.off()
+}
+
+```
+

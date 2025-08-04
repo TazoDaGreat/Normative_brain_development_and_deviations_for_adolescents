@@ -4,6 +4,7 @@ author: Jeffrey Choi
 output: html_document
 ---
 
+This file plots the residaul differences between cortical thickness and surface area of reach race compared to white. We save pngs of every combo so we can use these to upload to the shiny instead
 ```{r}
 library(readr)
 library(dplyr)
@@ -28,11 +29,14 @@ race_diff_combos <- unlist(
 )
 
 # function to plot each combo
-make_thickness_plot <- function(data, race_subset, title, subtitle, gradient_limits) {
+make_thickness_plot <- function(data, race_subset, title, subtitle) {
   filtered <- data %>% 
     filter(race_ethnicity %in% race_subset)
   
   joined <- brain_join(dk_df, filtered, by = c("region", "hemi"))
+  
+  min <- min(joined$RMSE_residual)
+  max <- max(joined$RMSE_residual)
 
   plot <- joined %>%
     mutate(hover = paste0(region, ": ", round(RMSE_residual, 3))) %>% 
@@ -46,16 +50,16 @@ make_thickness_plot <- function(data, race_subset, title, subtitle, gradient_lim
          subtitle = subtitle) +
     facet_wrap(~race_ethnicity) +
     scale_fill_gradientn(
-      name = "RMSE in mm", 
+      name = "Error (RMSE in mm)", 
       colors = rev(hcl.colors(10, "purple-yellow")),
-      limits = gradient_limits
+      limits = c(min, max)
     ) +
     theme_void()
   
   return(plot)
 }
 
-make_area_plot <- function(data, race_subset, title, subtitle, gradient_limits) {
+make_area_plot <- function(data, race_subset, title, subtitle) {
   filtered <- data %>% 
     filter(race_ethnicity %in% race_subset)
   
@@ -73,7 +77,7 @@ make_area_plot <- function(data, race_subset, title, subtitle, gradient_limits) 
          subtitle = subtitle) +
     facet_wrap(~race_ethnicity) +
     scale_fill_gradientn(
-      name = "RMSE in mm", 
+      name = "Error (RMSE in mm^2^)",
       colors = rev(hcl.colors(10, "purple-yellow")),
       limits = gradient_limits
     ) +
@@ -245,24 +249,29 @@ for (combo in race_combos) {
   male_plot_list[[race_label]] <- make_thickness_plot(
     thickness_male_RMSE_ind_region,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)",
-    subtitle = "Male",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve",
+    subtitle = "Male"
   )
   
   female_plot_list[[race_label]] <- make_thickness_plot(
     thickness_female_RMSE_ind_region,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)", 
-    subtitle = "Female",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve", 
+    subtitle = "Female"
   )
 }
 ```
 
 ```{r}
-male_plot_list[[127]]
-female_plot_list[[127]]
+for (plot_name in names(male_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/thickness_error", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_plot_list[[plot_name]])
+}
+
+for (plot_name in names(female_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_thickness_error", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_plot_list[[plot_name]])
+}
 ```
 
 ```{r}
@@ -417,60 +426,83 @@ for (combo in race_combos) {
   male_baseline_plot_list[[race_label]] <- make_thickness_plot(
     thickness_male_RMSE_baseline,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)", 
-    subtitle = "Baseline Male",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve", 
+    subtitle = "Males at Baseline"
   )
   
   female_baseline_plot_list[[race_label]] <- make_thickness_plot(
     thickness_female_RMSE_baseline,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)", 
-    subtitle = "Baseline Female",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve", 
+    subtitle = "Females at Baseline"
   )
   
   male_year2_plot_list[[race_label]] <- make_thickness_plot(
     thickness_male_RMSE_year2,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)", 
-    subtitle = "Year 2 Male",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve", 
+    subtitle = "Males at Year 2"
   )
   
   female_year2_plot_list[[race_label]] <- make_thickness_plot(
     thickness_female_RMSE_year2,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)", 
-    subtitle = "Year 2 Female",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve", 
+    subtitle = "Females at Year 2"
   )
   
   male_year4_plot_list[[race_label]] <- make_thickness_plot(
     thickness_male_RMSE_year4,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)", 
-    subtitle = "Year 4 Male",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve", 
+    subtitle = "Males at Year 4"
   )
   
   female_year4_plot_list[[race_label]] <- make_thickness_plot(
     thickness_female_RMSE_year4,
     race_subset = combo,
-    title = "Average Residual From Predicted Curve by Race/Ethnicity (Cortical Thickness)", 
-    subtitle = "Year 4 Female",
-    gradient_limits = c(0.04, 0.41)
+    title = "Average Cortical Thickness Error From Predicted Curve", 
+    subtitle = "Females at Year 4"
   )
 }
 ```
 
 ```{r}
-male_baseline_plot_list[[127]]
-female_baseline_plot_list[[127]]
-male_year2_plot_list[[127]]
-female_year2_plot_list[[127]]
-male_year4_plot_list[[127]]
-female_year4_plot_list[[127]]
+for (plot_name in names(male_baseline_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_thickness_error_baseline",
+                         paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_baseline_plot_list[[plot_name]])
+}
+
+for (plot_name in names(female_baseline_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_thickness_error_baseline",
+                         paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_baseline_plot_list[[plot_name]])
+}
+
+for (plot_name in names(male_year2_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_thickness_error_year2",
+                         paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_year2_plot_list[[plot_name]])
+}
+
+for (plot_name in names(female_year2_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_thickness_error_year2",
+                         paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_year2_plot_list[[plot_name]])
+}
+
+for (plot_name in names(male_year4_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_thickness_error_year4",
+                         paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_year4_plot_list[[plot_name]])
+}
+
+for (plot_name in names(female_year4_plot_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_thickness_error_year4",
+                         paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_year4_plot_list[[plot_name]])
+}
 ```
 
 Surface Area Time

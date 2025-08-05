@@ -580,7 +580,7 @@ server <- function(session, input, output) {
     )
     ordered_race_codes <- c("White", "Black", "Asian", "Hispanic", "NHPI", "AIAN", "Other")
     
-    if ("All" %in% races_input) {
+    if (is.null(races_input) || length(races_input) == 0 || "All" %in% races_input) {
       selected_races <- ordered_race_codes
     } else {
       mapped_races <- race_map[races_input]
@@ -632,7 +632,7 @@ server <- function(session, input, output) {
     )
     ordered_race_codes <- c("Black", "Asian", "Hispanic", "NHPI", "AIAN", "Other")
     
-    if ("All" %in% races_input) {
+    if (is.null(races_input) || length(races_input) == 0 || "All" %in% races_input) {
       selected_races <- ordered_race_codes
     } else {
       mapped_races <- race_map[races_input]
@@ -697,7 +697,7 @@ server <- function(session, input, output) {
     )
     ordered_race_codes <- c("Black", "Asian", "Hispanic", "NHPI", "AIAN", "Other")
     
-    if ("All" %in% races_input) {
+    if (is.null(races_input) || length(races_input) == 0 || "All" %in% races_input) {
       selected_races <- ordered_race_codes
     } else {
       mapped_races <- race_map[races_input]

@@ -381,6 +381,86 @@ This project addresses these limitations through the creation of longitudinal di
           ),
   ),
 
+  nav_panel("Mental Health Prediction",
+          id = "tab_6",
+          layout_columns(
+            col_widths = c(12, 12),
+            card(
+              style = "height: 250px;",
+              title = "sidebar = sidebar(renderTex",
+              div(
+                tags$p(
+                  "Our GAMLSS models account for individual-specific variablility, meaning we can obtain predicted growth curves specific for each individual in our sample.
+          Taking the average root mean square error (RMSE) from each individual's actual measure and their predicted meassure, we can see average errors by race and region.
+          This tab allows you to examine cortical thickness and surface area errors grouped by race and visit time point.
+          ",style = "margin-bottom: 5px; font-size: 14px;"),
+                tags$p(
+                  "Things to note for this page:", style = "margin-bottom: 5px; font-size: 14px;"),
+                tags$li("Select between what brain measure, sex, race, and visit time point", style = " margin: 0; font-size: 12px;"),
+                tags$li("The gradient labels change depending on the selection. The same color on one image may not correspond with the same value after changing selection", style = " margin: 0; font-size: 12px;"),
+                tags$li("Selecting 'All' selects all races. Remove 'All' to individually select races", style = " margin: 0; font-size: 12px;"),
+                tags$li("Overall is an average of all individual time point errors", style = " margin: 0; font-size: 12px;"),
+              ),
+              layout_columns(
+                col_widths = c(2, 2, 2, 2, 2, 2),
+                
+                selectInput(
+                  inputId = "cbcl_measure",
+                  label = "Select Measure",
+                  choices = c("Cortical Thickness", "Cortical Surface Area"),
+                  selected = "Cortical Thickness"
+                ),
+                
+                selectInput(
+                  inputId = "cbcl_sex",
+                  label = "Select Sex",
+                  choices = c("Male", "Female"),
+                  selected = "Male"
+                ),
+                
+                selectInput(
+                  inputId = "cbcl_races",
+                  label = "Select Race(s)",
+                  choices = c("All", "Black", "Hispanic", "Asian", "American Indian / Alaska Native (AIAN)", "Native Hawaiian / Pacific Islander (NHPI)", "Other"),
+                  selected = "All",
+                  multiple = TRUE
+                ),
+                
+                selectInput(
+                  inputId = "cbcl_mh",
+                  label = "Select Mental Health",
+                  choices = c("Internalizing Score", "Externalizing Score", "Depression Score"),
+                  selected = "Internalizing Score"
+                ),
+                
+                selectInput(
+                  inputId = "cbcl_covs",
+                  label = "Select Covariate Model",
+                  choices = c("No Covariates Model", "Race Included Model", "Race, Income, and Education Included Model"),
+                  selected = "No Covariates Model"
+                ),
+
+                selectInput(
+                  inputId = "cbcl_preds",
+                  label = "Select Modle Predictors",
+                  choices = c("Centile Trajectory Scores", "Raw Measure Trajectory Scores", "Z-Score Trajectory Scores"),
+                  selected = "Centile Trajectory Scores"
+                )
+              )
+            )
+            ##########
+            , card(
+              card_header(tags$h4("", style = "text-align: center;")),
+              title = "plot 1",
+              style = "height: 5000px;",
+              div(
+                style = "display: flex; justify-content: center; align-items: center;",
+                imageOutput("cbcl", inline = TRUE)
+              )
+            ),
+          ),
+),
+
   nav_panel("About Us",
             value = "tab_6",
             layout_sidebar(
@@ -543,7 +623,6 @@ server <- function(session, input, output) {
     )
     
     race_map <- c(
-      "White" = "White",
       "Black" = "Black",
       "Asian" = "Asian",
       "Hispanic" = "Hispanic",
@@ -567,6 +646,73 @@ server <- function(session, input, output) {
     folder <- paste0(sex, "_", measure_name, "_difference", folder_suffix)
                         # change path below to where you have the folder saved to
     image_path <- paste0("~/Library/CloudStorage/Box-Box/", folder, race_filename, ".png")
+    print(image_path)
+    
+    list(
+      src = image_path,
+      contentType = "image/png",
+      width = 700,
+      height = 700
+    )
+  }, deleteFile = FALSE)
+  
+  output$cbcl <- renderImage({
+    races_input <- input$cbcl_races
+    sex <- tolower(input$cbcl_sex) 
+    mh <- input$cbcl_mh
+    measure <- input$cbcl_measure
+    covs <- input$cbcl_covs
+    preds <- input$cbcl_preds
+    
+    measure_map <- c(
+      "Cortical Thickness" = "",
+      "Cortical Surface Area" = "area_"
+    )
+    
+    covs_map <- c(
+      "No Covariates Model" = "no_race",
+      "Race Included Model" = "race",
+      "Race, Income, and Education Included Model" = "covs"
+    )
+    
+    preds_map <- c(
+      "Centile Trajectory Scores" = "c",
+      "Raw Measure Trajectory Scores" = "r",
+      "Z-Score Trajectory Scores" = "z"
+    )
+    
+    mh_map <- c(
+      "Internalizing Score" = "internal",
+      "Externalizing Score" = "external",
+      "Depression Score" = "depression"
+    )
+    
+    race_map <- c(
+      "Black" = "Black",
+      "Asian" = "Asian",
+      "Hispanic" = "Hispanic",
+      "Native Hawaiian / Pacific Islander (NHPI)" = "NHPI",
+      "American Indian / Alaska Native (AIAN)" = "AIAN",
+      "Other" = "Other"
+    )
+    ordered_race_codes <- c("Black", "Asian", "Hispanic", "NHPI", "AIAN", "Other")
+    
+    if ("All" %in% races_input) {
+      selected_races <- ordered_race_codes
+    } else {
+      mapped_races <- race_map[races_input]
+      mapped_races <- mapped_races[!is.na(mapped_races)]
+      selected_races <- ordered_race_codes[ordered_race_codes %in% mapped_races]
+    }
+    race_filename <- paste(selected_races, collapse = "_")
+    measure_name <- measure_map[[measure]]
+    mh_name <- mh_map[[mh]]
+    pred_name <- preds_map[[preds]]
+    covs_name <- covs_map[[covs]]
+
+    folder <- paste0(sex, "_", measure_name, mh_name)
+    # change path below to where you have the folder saved to
+    image_path <- paste0("~/Library/CloudStorage/Box-Box/", folder, "/", covs_name, "/", pred_name, "/", race_filename, ".png")
     print(image_path)
     
     list(

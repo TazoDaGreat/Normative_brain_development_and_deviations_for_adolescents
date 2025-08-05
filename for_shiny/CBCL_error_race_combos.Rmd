@@ -347,7 +347,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - No Demographic Covariates"
   )
   
   male_area_int_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -355,7 +355,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - Race as Covariate"
   )
   
   male_area_int_covs_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -363,7 +363,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_int_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -371,7 +371,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - No Demographic Covariates"
   )
   
   female_area_int_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -379,7 +379,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - Race as Covariate"
   )
   
   female_area_int_covs_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -387,7 +387,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - Race, Income, and Education as Covariates"
   )
   
   # for raw predictors
@@ -397,7 +397,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - No Demographic Covariates"
   )
   
   male_area_int_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -405,7 +405,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - Race as Covariate"
   )
   
   male_area_int_covs_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -413,7 +413,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_int_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -421,7 +421,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - No Demographic Covariates"
   )
   
   female_area_int_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -429,7 +429,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - Race as Covariate"
   )
   
   female_area_int_covs_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -437,7 +437,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - Race, Income, and Education as Covariates"
   )
   
   # for z_score predictors
@@ -447,7 +447,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - No Demographic Covariates"
   )
   
   male_area_int_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -455,7 +455,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - Race as Covariate"
   )
   
   male_area_int_covs_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -463,7 +463,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_int_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -471,7 +471,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - No Demographic Covariates"
   )
   
   female_area_int_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -479,7 +479,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - Race as Covariate"
   )
   
   female_area_int_covs_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -487,7 +487,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
     title = "Relative Difference in CBCL Internalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - Race, Income, and Education as Covariates"
   )
 }
 ```
@@ -627,7 +627,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - No Demographic Covariates"
   )
   
   male_area_ext_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -635,7 +635,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - Race as Covariate"
   )
   
   male_area_ext_covs_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -643,7 +643,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_ext_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -651,7 +651,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - No Demographic Covariates"
   )
   
   female_area_ext_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -659,7 +659,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - Race as Covariate"
   )
   
   female_area_ext_covs_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -667,7 +667,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - Race, Income, and Education as Covariates"
   )
   
   # for raw predictors
@@ -677,7 +677,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - No Demographic Covariates"
   )
   
   male_area_ext_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -685,7 +685,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - Race as Covariate"
   )
   
   male_area_ext_covs_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -693,7 +693,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_ext_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -701,7 +701,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - No Demographic Covariates"
   )
   
   female_area_ext_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -709,7 +709,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - Race as Covariate"
   )
   
   female_area_ext_covs_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -717,7 +717,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - Race, Income, and Education as Covariates"
   )
   
   # for z_score predictors
@@ -727,7 +727,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - No Demographic Covariates"
   )
   
   male_area_ext_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -735,7 +735,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - Race as Covariate"
   )
   
   male_area_ext_covs_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -743,7 +743,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_ext_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -751,7 +751,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - No Demographic Covariates"
   )
   
   female_area_ext_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -759,7 +759,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - Race as Covariate"
   )
   
   female_area_ext_covs_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -767,7 +767,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
     title = "Relative Difference in CBCL Externalizing Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - Race, Income, and Education as Covariates"
   )
 }
 ```
@@ -847,7 +847,7 @@ for (plot_name in names(male_area_ext_race_z_list)) {
 }
 
 for (plot_name in names(male_area_ext_covs_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/covs/z", paste0(plot_name, ".png"))
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/covs/z", paste0(plot_name, ".png"))
   ggsave(filename = file_path, plot = male_area_ext_covs_z_list[[plot_name]])
 }
 
@@ -906,7 +906,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - No Demographic Covariates"
   )
   
   male_area_dep_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -914,7 +914,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - Race as Covariate"
   )
   
   male_area_dep_covs_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -922,7 +922,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Centile Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_dep_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -930,7 +930,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - No Demographic Covariates"
   )
   
   female_area_dep_race_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -938,7 +938,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - Race as Covariate"
   )
   
   female_area_dep_covs_c_list[[race_label]] <- plot_brain_residual_diff(
@@ -946,7 +946,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Centile Predictors - Race, Income, and Education as Covariates"
   )
   
   # for raw predictors
@@ -956,7 +956,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - No Demographic Covariates"
   )
   
   male_area_dep_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -964,7 +964,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - Race as Covariate"
   )
   
   male_area_dep_covs_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -972,7 +972,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Raw Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_dep_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -980,7 +980,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - No Demographic Covariates"
   )
   
   female_area_dep_race_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -988,7 +988,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - Race as Covariate"
   )
   
   female_area_dep_covs_r_list[[race_label]] <- plot_brain_residual_diff(
@@ -996,7 +996,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Raw Predictors - Race, Income, and Education as Covariates"
   )
   
   # for z_score predictors
@@ -1006,7 +1006,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - No Demographic Covariates"
   )
   
   male_area_dep_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -1014,7 +1014,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - Race as Covariate"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - Race as Covariate"
   )
   
   male_area_dep_covs_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -1022,7 +1022,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Male - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Male - Cortical Surface Area Z-Score Predictors - Race, Income, and Education as Covariates"
   )
   
   female_area_dep_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -1030,7 +1030,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - No Demographic Covariates"
   )
   
   female_area_dep_race_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -1038,7 +1038,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - Race as Covariate"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - Race as Covariate"
   )
   
   female_area_dep_covs_z_list[[race_label]] <- plot_brain_residual_diff(
@@ -1046,7 +1046,7 @@ for (combo in race_combos) {
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
     title = "Relative Difference in CBCL Depression Score Error from White",
-    subtitle = "Female - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
+    subtitle = "Female - Cortical Surface Area Z-Score Predictors - Race, Income, and Education as Covariates"
   )
 }
 ```
@@ -1142,6 +1142,6 @@ for (plot_name in names(female_area_dep_race_z_list)) {
 
 for (plot_name in names(female_area_dep_covs_z_list)) {
   file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/covs/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_areaf_dep_covs_z_list[[plot_name]])
+  ggsave(filename = file_path, plot = female_area_dep_covs_z_list[[plot_name]])
 }
 ```

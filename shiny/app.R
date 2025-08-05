@@ -26,16 +26,16 @@ library(tidyr)
 ui <- page_navbar(
   title = "Adolescent Brain Development",
   ## helps deal with drop down being cut off 
-  # header =tags$head(tags$style(HTML("
-  #   .bslib-card, .tab-content, .tab-pane, .card-body {
-  #     overflow: visible !important;
-  #   }
-  # "))),
+  header =tags$head(tags$style(HTML("
+    .bslib-card, .tab-content, .tab-pane, .card-body {
+      overflow: visible !important;
+    }
+  "))),
   
   nav_panel("Home", id = "tab_1",
             layout_columns(
               col_widths = c(12, 12, 12),
-              card(tags$b("About the Dashboard",style = "text-align: center; margin: 0;"),
+              card(tags$b("Welcome to our Interactive App!",style = "text-align: center; margin: 0;"),
                    "Distributional modeling, also known as normative modeling, allows for the creation of centile curves to visualize the variation of a developmental phenotype as a function of age. Previous studies have utilized a variety of modeling approaches, including Bayesian regression, Gaussian processes, and Generalized Additive Models for Location, Scale, and Shape (GAMLSS) to model trajectories of cortical thickness and cortical surface area over the course of the human lifespan. Such studies typically incorporate a cross-sectional design, generally discarding non-baseline data from longitudinal data sources and failing to account for within-person changes across time. Additionally, while many studies plot centile curves separately for each sex and utilize random effects to account for site- and/or study-related variability, other demographic factors, such as race, are not considered in the distributional models.
 
 This project addresses these limitations through the creation of longitudinal distributional models for cortical thickness and surface area of adolescents ages 9 to 15, stratified by race and sex, for 70 different brain regions. Spatial and longitudinal results are visualized in this interactive dashboard – explore to learn more!",style = "font-size: 12px; margin: 0;"),
@@ -254,35 +254,135 @@ This project addresses these limitations through the creation of longitudinal di
             ),
   ),
 
-  nav_panel("Risdual Plotting",
-            id = "tab_4",
-            layout_columns(col_widths = c(12, 6, 6),card(style = "height: 150px;", title ="sidebar = sidebar(renderTex",
-                                                                            layout_columns(col_widths = c(6, 6),
-                                                                              selectInput("type2", "Select Race", choices = c(
-                                                                              "All",
-                                                                              "White",
-                                                                              "Black",
-                                                                              "Hispanic",
-                                                                              "Asian",
-                                                                              "Not listed"
-                                                                            
-                                                                            ), selected ="All" ),
-                                                                            selectInput("type2", "select time point", choices = c(
-                                                                              "All",
-                                                                              "other"
-                                                                            ), selected ="All" ))
-                                                                            
-  )
-  ##########
-  ,card(card_header(tags$h4("Card 2 header", style = "text-align: center;")),title ="plot 1",style = "height: 2500px;",imageOutput("residual_male",width = "45%", height = "400px",inline = TRUE)),
-  
-  #########
-  card(card_header(tags$h4("Card 2 header", style = "text-align: center;")),title ="plot 1",style = "height: 2500px;",imageOutput("residual_female",width = "45%", height = "400px",inline = TRUE))
-  ),),
+  nav_panel("Prediction Error",
+  id = "tab_4",
+  layout_columns(
+    col_widths = c(12, 12),
+    card(
+      style = "height: 250px;",
+      title = "sidebar = sidebar(renderTex",
+      div(
+        tags$p(
+          "Our GAMLSS models account for individual-specific variablility, meaning we can obtain predicted growth curves specific for each individual in our sample.
+          Taking the average root mean square error (RMSE) from each individual's actual measure and their predicted meassure, we can see average errors by race and region.
+          This tab allows you to examine cortical thickness and surface area errors grouped by race and visit time point.
+          ",style = "margin-bottom: 5px; font-size: 14px;"),
+          tags$p(
+          "Things to note for this page:", style = "margin-bottom: 5px; font-size: 14px;"),
+          tags$li("Select between what brain measure, sex, race, and visit time point", style = " margin: 0; font-size: 12px;"),
+          tags$li("The gradient labels change depending on the selection. The same color on one image may not correspond with the same value after changing selection", style = " margin: 0; font-size: 12px;"),
+          tags$li("Selecting 'All' selects all races. Remove 'All' to individually select races", style = " margin: 0; font-size: 12px;"),
+          tags$li("Overall is an average of all individual time point errors", style = " margin: 0; font-size: 12px;"),
+      ),
+      layout_columns(
+        col_widths = c(2, 1, 6, 2),
+        
+        selectInput(
+          inputId = "errors_measure",
+          label = "Select Measure",
+          choices = c("Cortical Thickness", "Cortical Surface Area"),
+          selected = "Cortical Thickness"
+        ),
+        
+        selectInput(
+          inputId = "errors_sex",
+          label = "Select Sex",
+          choices = c("Male", "Female"),
+          selected = "Male"
+        ),
 
+        selectInput(
+          inputId = "errors_races",
+          label = "Select Race(s)",
+          choices = c("All", "White", "Black", "Hispanic", "Asian", "American Indian / Alaska Native (AIAN)", "Native Hawaiian / Pacific Islander (NHPI)", "Other"),
+          selected = "All",
+          multiple = TRUE
+        ),
+
+        selectInput(
+          inputId = "errors_timepoint",
+          label = "Select time point",
+          choices = c("Overall", "Baseline", "Year 2", "Year 4"),
+          selected = "Overall"
+        )
+      )
+    )
+    ##########
+    , card(
+      card_header(tags$h4("", style = "text-align: center;")),
+      title = "plot 1",
+      style = "height: 5000px;",
+      div(
+        style = "display: flex; justify-content: center; align-items: center;",
+        imageOutput("errors", inline = TRUE)
+      )
+    ),
+  ),
+),
+
+  nav_panel("Relative Difference",
+          id = "tab_5",
+          layout_columns(
+            col_widths = c(12, 12),
+            card(
+              style = "height: 250px;",
+              title = "sidebar = sidebar(renderTex",
+              div(
+                tags$p(
+                  "Our GAMLSS models account for individual-specific variablility, meaning we can obtain predicted growth curves specific for each individual in our sample.
+          Taking the average root mean square error (RMSE) from each individual's actual measure and their predicted meassure, we can see average errors by race and region.
+          This tab allows you to examine cortical thickness and surface area errors grouped by race and visit time point.",
+                  style = "margin-bottom: 5px; font-size: 14px;"
+                )
+              ),
+              layout_columns(
+                col_widths = c(2, 1, 6, 2),
+                
+                selectInput(
+                  inputId = "difference_measure",
+                  label = "Select Measure",
+                  choices = c("Cortical Thickness", "Cortical Surface Area"),
+                  selected = "Cortical Thickness"
+                ),
+                
+                selectInput(
+                  inputId = "difference_sex",
+                  label = "Select Sex",
+                  choices = c("Male", "Female"),
+                  selected = "Male"
+                ),
+                
+                selectInput(
+                  inputId = "difference_races",
+                  label = "Select Race(s)",
+                  choices = c("All", "Black", "Hispanic", "Asian", "American Indian / Alaska Native (AIAN)", "Native Hawaiian / Pacific Islander (NHPI)", "Other"),
+                  selected = "All",
+                  multiple = TRUE
+                ),
+                
+                selectInput(
+                  inputId = "difference_timepoint",
+                  label = "Select time point",
+                  choices = c("Overall", "Baseline", "Year 2", "Year 4"),
+                  selected = "Overall"
+                )
+              )
+            )
+            ##########
+            , card(
+              card_header(tags$h4("", style = "text-align: center;")),
+              title = "plot 1",
+              style = "height: 5000px;",
+              div(
+                style = "display: flex; justify-content: center; align-items: center;",
+                imageOutput("difference", inline = TRUE)
+              )
+            ),
+          ),
+  ),
 
   nav_panel("About Us",
-            value = "tab_5",
+            value = "tab_6",
             layout_sidebar(
               sidebar = sidebar(
                 selectInput("type4", "What event do you want to visualize", choices = c("kaka"), selected = "kaka")
@@ -371,12 +471,119 @@ server <- function(session, input, output) {
          height = 500)
   }, deleteFile = FALSE)
   
+  output$errors <- renderImage({
+    races_input <- input$errors_races
+    sex <- tolower(input$errors_sex) 
+    timepoint <- input$errors_timepoint
+    measure <- input$errors_measure
+    
+    visit_suffix_map <- c(
+      "Overall" = "/",
+      "Baseline" = "_baseline/",
+      "Year 2" = "_year2/",
+      "Year 4" = "_year4/"
+    )
+    
+    measure_map <- c(
+      "Cortical Thickness" = "thickness",
+      "Cortical Surface Area" = "area"
+    )
+    
+    race_map <- c(
+      "White" = "White",
+      "Black" = "Black",
+      "Asian" = "Asian",
+      "Hispanic" = "Hispanic",
+      "Native Hawaiian / Pacific Islander (NHPI)" = "NHPI",
+      "American Indian / Alaska Native (AIAN)" = "AIAN",
+      "Other" = "Other"
+    )
+    ordered_race_codes <- c("White", "Black", "Asian", "Hispanic", "NHPI", "AIAN", "Other")
+    
+    if ("All" %in% races_input) {
+      selected_races <- ordered_race_codes
+    } else {
+      mapped_races <- race_map[races_input]
+      mapped_races <- mapped_races[!is.na(mapped_races)]
+      selected_races <- ordered_race_codes[ordered_race_codes %in% mapped_races]
+    }
+    race_filename <- paste(selected_races, collapse = "_")
+    measure_name <- measure_map[[measure]]
+
+    folder_suffix <- visit_suffix_map[[timepoint]]
+    folder <- paste0(sex, "_", measure_name, "_error", folder_suffix)
+    
+    image_path <- paste0("~/Library/CloudStorage/Box-Box/", folder, race_filename, ".png")
+    print(image_path)
+    
+    list(
+      src = image_path,
+      contentType = "image/png",
+      width = 700,
+      height = 700
+    )
+  }, deleteFile = FALSE)
+  
+  output$difference <- renderImage({
+    races_input <- input$difference_races
+    sex <- tolower(input$difference_sex) 
+    timepoint <- input$difference_timepoint
+    measure <- input$difference_measure
+    
+    visit_suffix_map <- c(
+      "Overall" = "/",
+      "Baseline" = "_baseline/",
+      "Year 2" = "_year2/",
+      "Year 4" = "_year4/"
+    )
+    
+    measure_map <- c(
+      "Cortical Thickness" = "thickness",
+      "Cortical Surface Area" = "area"
+    )
+    
+    race_map <- c(
+      "White" = "White",
+      "Black" = "Black",
+      "Asian" = "Asian",
+      "Hispanic" = "Hispanic",
+      "Native Hawaiian / Pacific Islander (NHPI)" = "NHPI",
+      "American Indian / Alaska Native (AIAN)" = "AIAN",
+      "Other" = "Other"
+    )
+    ordered_race_codes <- c("Black", "Asian", "Hispanic", "NHPI", "AIAN", "Other")
+    
+    if ("All" %in% races_input) {
+      selected_races <- ordered_race_codes
+    } else {
+      mapped_races <- race_map[races_input]
+      mapped_races <- mapped_races[!is.na(mapped_races)]
+      selected_races <- ordered_race_codes[ordered_race_codes %in% mapped_races]
+    }
+    race_filename <- paste(selected_races, collapse = "_")
+    measure_name <- measure_map[[measure]]
+    
+    folder_suffix <- visit_suffix_map[[timepoint]]
+    folder <- paste0(sex, "_", measure_name, "_difference", folder_suffix)
+    
+    image_path <- paste0("~/Library/CloudStorage/Box-Box/", folder, race_filename, ".png")
+    print(image_path)
+    
+    list(
+      src = image_path,
+      contentType = "image/png",
+      width = 700,
+      height = 700
+    )
+  }, deleteFile = FALSE)
+  
+  
   observe({
     query <- parseQueryString(session$clientData$url_search)
     query1 <- paste(names(query), query, sep = "=", collapse=", ")
     print(query1)
     if(query1 == "ref"){
-      nav_select(id = "tab_5", session = session)
+      nav_select(id = "tab_6", session = session)
     }
   })
   

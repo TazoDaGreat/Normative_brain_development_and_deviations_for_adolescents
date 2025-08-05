@@ -16,12 +16,13 @@ library(forcats)
 ```
 
 ```{r}
-brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_male_year4_mh.csv")
-brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_female_year4_mh.csv")
+brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv")
+brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv")
 ```
 
 ```{r}
 # contains people multiple times for each race/ethnicity they are
+# RUN THIS FOR AREA
 brain_data_male <- brain_data_male %>% 
   pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
          Asian_race, Other_race, Missing_race, demo_ethn_v2),
@@ -198,6 +199,7 @@ dk_df <- as_tibble(dk)
 ```{r}
 plot_brain_residual_diff <- function(
   brain_data,
+  race_subset,
   residual_col,
   title = "Residual Deviation from White",
   subtitle = "Male",
@@ -209,6 +211,7 @@ plot_brain_residual_diff <- function(
   
   # for this specific residual col in the df, find average rmse by race and for all
   processed <- brain_data %>%
+    filter(race_ethnicity %in% race_subset) %>% 
     mutate(residual_sqr = (!!residual_col_sym)^2) %>%
     ungroup() %>%
     {
@@ -231,7 +234,7 @@ plot_brain_residual_diff <- function(
     } %>%
     # sets up region name cols for ggseg 
     mutate(
-      abv = str_remove(region_raw, "^smri_area_cdk_"),
+      abv = str_remove(region_raw, "^smri_thick_cdk_"), #CHANGE THIS FOR AREA
       abv = str_remove(abv, "\\.combat$"),
       hemi = case_when(
         str_detect(abv, "lh$") ~ "left",
@@ -242,6 +245,10 @@ plot_brain_residual_diff <- function(
     rowwise() %>%
     filter(!abv %in% 
            c("total", "totallh", "totalrh")) %>% 
+    filter(!region_raw %in% 
+           c("smri_thick_cdk_mean.combat", 
+             "smri_thick_cdk_meanlh.combat",
+             "smri_thick_cdk_meanrh.combat")) %>% 
     mutate(region = get_name(dk_abv_to_names, abv)) %>%
     ungroup()
   
@@ -257,13 +264,11 @@ plot_brain_residual_diff <- function(
       rel_diff = (RMSE_residual - all_value) / all_value,
     ) %>%
     # drop white and missings from analysis
-    filter(race_ethnicity != "White", race_ethnicity != "Missing", race_ethnicity != "NHPI",
-           race_ethnicity != "All", race_ethnicity != "Other", race_ethnicity != "Black", 
-           race_ethnicity != "Hispanic", race_ethnicity != "Asian",)
+    filter(race_ethnicity != "White", race_ethnicity != "Missing")
   
   # compute color gradiant limits by most extreme rel_diff value
-  min <- abs(min(plot_df$rel_diff)) * 100
-  max <- abs(max(plot_df$rel_diff)) * 100
+  min <- (min(plot_df$rel_diff)) * 100
+  max <- (max(plot_df$rel_diff)) * 100
 
   joined <- brain_join(dk_df, plot_df, by = c("region", "hemi"))
 
@@ -283,7 +288,7 @@ plot_brain_residual_diff <- function(
     scale_fill_gradientn(
       name = "Relative Deviation from White (%)",
       colors = c("#23171B", "#443983", "#31688E", "#21918C", "#35B779", "#90D743", "#FDE725", "#F39C12", "#D7191C"),
-      limits = limits
+      limits = c(min, max)
     ) +
     theme_void()
 }
@@ -316,14 +321,14 @@ plot_brain_residual_diff(
 
 ```{r}
 # Externalizing Scores
-plot1<-plot_brain_residual_diff(
+plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
   subtitle = "Centile Predictors - No Demographic Covariates",
   limits = c(5,12)
 )
-plot2<-plot_brain_residual_diff(
+plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_external_r_raw",
   title = "Male CBCL Externalizing Residuals Relative to White (Cortical Thickness)",
@@ -337,24 +342,18 @@ plot_brain_residual_diff(
   subtitle = "Z-Score Predictors - No Demographic Covariates",
   limits = c(3,14)
 )
-
-plot1
-plot2
-
-ggsave("~/Library/CloudStorage/Box-Box/aian_centile_no_covs.png", plot = plot1)
-ggsave("~/Library/CloudStorage/Box-Box/aian_raw_no_covs.png", plot = plot2)
 ```
 
 ```{r}
 # Depression Scores
-plot1<-plot_brain_residual_diff(
+plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
-  title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
-  subtitle = "Centile Predictors - No Demographic Covariates",
+  title = "Relative Difference in CBCL Depression Score Error from White",
+  subtitle = "Male - Cortical Thickness Centile Predictors - No Demographic Covariates",
   limits = c(4.4,8.8)
 )
-plot2<-plot_brain_residual_diff(
+plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
@@ -368,13 +367,6 @@ plot_brain_residual_diff(
   subtitle = "Z-Score Predictors - No Demographic Covariates",
   limits = c(4.4,8.8)
 )
-# 
-# 
-plot1
-plot2
-# 
-ggsave("~/Library/CloudStorage/Box-Box/aian_centile_no_covs.png", plot = plot1)
-ggsave("~/Library/CloudStorage/Box-Box/aian_raw_no_covs.png", plot = plot2)
 ```
 
 Now lets consider just race in our glm
@@ -648,34 +640,27 @@ plot_brain_residual_diff(
 
 Let's compare different predictors
 ```{r}
-plot1<-plot_brain_residual_diff(
+plot_brain_residual_diff(
   brain_data = brain_data_male_predicted,
   residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
   subtitle = "Centile Predictors - No Covariates",
   limits = c(0, 4)
 )
-plot2<-plot_brain_residual_diff(
+plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_race,
   residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
   subtitle = "Centile Predictors - Race as Covariate",
    limits = c(0, 4)
 )
-plot3<-plot_brain_residual_diff(
+plot_brain_residual_diff(
   brain_data = brain_data_male_predicted_w_covs,
   residual_col = "resid_cbcl_scr_syn_external_r_centile",
   title = "Male CBCL Depression Residuals Relative to White (Cortical Thickness)",
   subtitle = "Centile Predictors - Race, Income, and Education as Covariates",
   limits = c(0, 4)
 )
-
-
-plot1
-plot3
-
-ggsave("~/Library/CloudStorage/Box-Box/hispanic_centile_no_covs.png", plot = plot1)
-ggsave("~/Library/CloudStorage/Box-Box/hispanic_centile_covs.png", plot = plot3)
 ```
 
 ```{r}

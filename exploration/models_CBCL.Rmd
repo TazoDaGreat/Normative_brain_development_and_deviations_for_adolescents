@@ -97,7 +97,7 @@ abline(model_external_female)
 library(dplyr)
 library(tidyverse)
 
-brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv") %>%
+brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_male_year4_mh.csv") %>%
   pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
            Asian_race, Other_race, Missing_race, demo_ethn_v2),
       names_to = "race_ethnicity",
@@ -116,7 +116,7 @@ brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data
          ) %>% 
   filter(!is.na(centile_slope))
 
-brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv") %>%
+brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_female_year4_mh.csv") %>%
   pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
            Asian_race, Other_race, Missing_race, demo_ethn_v2),
       names_to = "race_ethnicity",
@@ -156,6 +156,8 @@ brain_data_male <- brain_data_male %>%
   ) %>%
   filter(parse_number(age_variable) == parse_number(z_score_variable)) %>%
   select(src_subject_id, current_col_name, age, z_score) %>%
+  filter(is.finite(z_score), !is.na(z_score),
+         is.finite(age), !is.na(age)) %>%
   mutate(interview_age_centered = age - 108) %>% 
   group_by(src_subject_id, current_col_name) %>%
   nest() %>%
@@ -180,6 +182,8 @@ brain_data_female <- brain_data_female %>%
   ) %>%
   filter(parse_number(age_variable) == parse_number(z_score_variable)) %>%
   select(src_subject_id, current_col_name, age, z_score) %>%
+  filter(is.finite(z_score), !is.na(z_score),
+         is.finite(age), !is.na(age)) %>%
   mutate(interview_age_centered = age - 108) %>% 
   group_by(src_subject_id, current_col_name) %>%
   nest() %>%
@@ -190,6 +194,10 @@ brain_data_female <- brain_data_female %>%
   select(src_subject_id, current_col_name, z_score_intercept, z_score_slope) %>%
   right_join(brain_data_female, by = c("src_subject_id", "current_col_name"))
 
+```
+```{r}
+write_csv(brain_data_male, "~/Library/CloudStorage/Box-Box/area/final_data_male_year4_mh_2.csv")
+write_csv(brain_data_female, "~/Library/CloudStorage/Box-Box/area/final_data_female_year4_mh_2.csv")
 ```
 
 Internalizing CBCL Score

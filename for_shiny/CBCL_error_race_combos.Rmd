@@ -17,40 +17,8 @@ library(forcats)
 
 Data
 ```{r}
-brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_male_year4_mh.csv")
-brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/thickness/final_data_female_year4_mh.csv")
-```
-
-```{r}
-# contains people multiple times for each race/ethnicity they are
-# RUN THIS FOR AREA
-brain_data_male <- brain_data_male %>% 
-  pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
-         Asian_race, Other_race, Missing_race, demo_ethn_v2),
-    names_to = "race_ethnicity",
-    values_to = "indicator") %>% 
-  filter(indicator == 1) %>%
-  select(-indicator) %>% 
-  # recode race_ethnicity variable names 
-  mutate(race_ethnicity = recode(race_ethnicity, White_race = "White",
-                                 demo_ethn_v2 = "Hispanic", Black_race =  "Black",
-                                 AIAN_race =  "AIAN", NHPI_race =  "NHPI",
-                                 Asian_race = "Asian", Other_race = "Other",
-                                 Missing_race = "Missing")) 
-
-brain_data_female <- brain_data_female %>% 
-  pivot_longer(cols = c(White_race, Black_race, AIAN_race, NHPI_race,
-         Asian_race, Other_race, Missing_race, demo_ethn_v2),
-    names_to = "race_ethnicity",
-    values_to = "indicator") %>% 
-  filter(indicator == 1) %>%
-  select(-indicator) %>% 
-  # recode race_ethnicity variable names 
-  mutate(race_ethnicity = recode(race_ethnicity, White_race = "White",
-                                 demo_ethn_v2 = "Hispanic", Black_race =  "Black",
-                                 AIAN_race =  "AIAN", NHPI_race =  "NHPI",
-                                 Asian_race = "Asian", Other_race = "Other",
-                                 Missing_race = "Missing"))
+brain_data_male <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_male_year4_mh_2.csv")
+brain_data_female <- read_csv("~/Library/CloudStorage/Box-Box/area/final_data_female_year4_mh_2.csv")
 ```
 
 Let's first look at psychopathology prediction models without race and other demogs as covariates,
@@ -92,9 +60,12 @@ fit_models_for_region <- function(df_sub) {
         # adds predicteds and residuals to df_sub matching model rows
         df_model_rows <- model.frame(model)
         idx <- match(rownames(df_model_rows), rownames(df_sub))
-        
-        # saves predicteds and residuals into df_sub
-        df_sub[[resid_col]][idx] <- resid
+
+        # Only use valid (non-NA) matches
+        valid_idx <- which(!is.na(idx))
+
+        df_sub[[resid_col]] <- NA_real_  # Preallocate with NAs
+        df_sub[[resid_col]][idx[valid_idx]] <- resid[valid_idx]
       }
     }
   }
@@ -142,19 +113,18 @@ fit_models_for_region_w_race <- function(df_sub) {
       )
       
       if (!is.null(model)) { 
-        preds <- predict(model, type = "response") # save predicted values
-        actual <- model$y # grab actual values
-        
-        pred_col <- paste0("pred_", outcome, "_", pred_type) # make predicted values col
+        resid <- resid(model, type = "pearson")
         resid_col <- paste0("resid_", outcome, "_", pred_type) # make residual values col
         
         # adds predicteds and residuals to df_sub matching model rows
         df_model_rows <- model.frame(model)
         idx <- match(rownames(df_model_rows), rownames(df_sub))
-        
-        # saves predicteds and residuals into df_sub
-        df_sub[[pred_col]][idx] <- preds
-        df_sub[[resid_col]][idx] <- preds - actual
+
+        # Only use valid (non-NA) matches
+        valid_idx <- which(!is.na(idx))
+
+        df_sub[[resid_col]] <- NA_real_  # Preallocate with NAs
+        df_sub[[resid_col]][idx[valid_idx]] <- resid[valid_idx]
       }
     }
   }
@@ -202,19 +172,18 @@ fit_models_for_region_w_covs <- function(df_sub) {
       )
       
       if (!is.null(model)) { 
-        preds <- predict(model, type = "response") # save predicted values
-        actual <- model$y # grab actual values
-        
-        pred_col <- paste0("pred_", outcome, "_", pred_type) # make predicted values col
+        resid <- resid(model, type = "pearson")
         resid_col <- paste0("resid_", outcome, "_", pred_type) # make residual values col
         
         # adds predicteds and residuals to df_sub matching model rows
         df_model_rows <- model.frame(model)
         idx <- match(rownames(df_model_rows), rownames(df_sub))
-        
-        # saves predicteds and residuals into df_sub
-        df_sub[[pred_col]][idx] <- preds
-        df_sub[[resid_col]][idx] <- preds - actual
+
+        # Only use valid (non-NA) matches
+        valid_idx <- which(!is.na(idx))
+
+        df_sub[[resid_col]] <- NA_real_  # Preallocate with NAs
+        df_sub[[resid_col]][idx[valid_idx]] <- resid[valid_idx]
       }
     }
   }
@@ -277,7 +246,7 @@ plot_brain_residual_diff <- function(
     } %>%
     # sets up region name cols for ggseg 
     mutate(
-      abv = str_remove(region_raw, "^smri_thick_cdk_"), #CHANGE THIS FOR AREA
+      abv = str_remove(region_raw, "^smri_area_cdk_"), #CHANGE THIS FOR AREA
       abv = str_remove(abv, "\\.combat$"),
       hemi = case_when(
         str_detect(abv, "lh$") ~ "left",
@@ -347,33 +316,33 @@ race_combos <- unlist(
   recursive = FALSE
 )
 
-male_int_no_race_c_list <- list()
-male_int_race_c_list <- list()
-male_int_covs_c_list <- list()
-female_int_no_race_c_list <- list()
-female_int_race_c_list <- list()
-female_int_covs_c_list <- list()
+male_area_int_no_race_c_list <- list()
+male_area_int_race_c_list <- list()
+male_area_int_covs_c_list <- list()
+female_area_int_no_race_c_list <- list()
+female_area_int_race_c_list <- list()
+female_area_int_covs_c_list <- list()
 
-male_int_no_race_r_list <- list()
-male_int_race_r_list <- list()
-male_int_covs_r_list <- list()
-female_int_no_race_r_list <- list()
-female_int_race_r_list <- list()
-female_int_covs_r_list <- list()
+male_area_int_no_race_r_list <- list()
+male_area_int_race_r_list <- list()
+male_area_int_covs_r_list <- list()
+female_area_int_no_race_r_list <- list()
+female_area_int_race_r_list <- list()
+female_area_int_covs_r_list <- list()
 
-male_int_no_race_z_list <- list()
-male_int_race_z_list <- list()
-male_int_covs_z_list <- list()
-female_int_no_race_z_list <- list()
-female_int_race_z_list <- list()
-female_int_covs_z_list <- list()
+male_area_int_no_race_z_list <- list()
+male_area_int_race_z_list <- list()
+male_area_int_covs_z_list <- list()
+female_area_int_no_race_z_list <- list()
+female_area_int_race_z_list <- list()
+female_area_int_covs_z_list <- list()
 
 for (combo in race_combos) {
   race_label <- paste(combo, collapse = "_")
   
   # by centile predictors
     # by trajectory score
-  male_int_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
@@ -381,7 +350,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - No Demographic Covariates"
   )
   
-  male_int_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
@@ -389,7 +358,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - Race as Covariate"
   )
   
-  male_int_covs_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_covs_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
@@ -397,7 +366,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_int_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
@@ -405,7 +374,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Centile Predictors - No Demographic Covariates"
   )
   
-  female_int_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
@@ -413,7 +382,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Centile Predictors - Race as Covariate"
   )
   
-  female_int_covs_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_covs_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_centile",
@@ -423,7 +392,7 @@ for (combo in race_combos) {
   
   # for raw predictors
     # by trajectory score
-  male_int_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
@@ -431,7 +400,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - No Demographic Covariates"
   )
   
-  male_int_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
@@ -439,7 +408,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - Race as Covariate"
   )
   
-  male_int_covs_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_covs_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
@@ -447,7 +416,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_int_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
@@ -455,7 +424,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Raw Predictors - No Demographic Covariates"
   )
   
-  female_int_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
@@ -463,7 +432,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Raw Predictors - Race as Covariate"
   )
   
-  female_int_covs_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_covs_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_raw",
@@ -473,7 +442,7 @@ for (combo in race_combos) {
   
   # for z_score predictors
     # by trajectory score
-  male_int_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
@@ -481,7 +450,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
   )
   
-  male_int_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
@@ -489,7 +458,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - Race as Covariate"
   )
   
-  male_int_covs_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_int_covs_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
@@ -497,7 +466,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_int_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
@@ -505,7 +474,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
   )
   
-  female_int_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
@@ -513,7 +482,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Z-Score Predictors - Race as Covariate"
   )
   
-  female_int_covs_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_int_covs_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_internal_r_z_score",
@@ -525,96 +494,96 @@ for (combo in race_combos) {
 
 ```{r}
 # by centile
-for (plot_name in names(male_int_no_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/no_race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_no_race_c_list[[plot_name]])
+for (plot_name in names(male_area_int_no_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/no_race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_no_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(male_int_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_race_c_list[[plot_name]])
+for (plot_name in names(male_area_int_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(male_int_covs_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/covs/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_covs_c_list[[plot_name]])
+for (plot_name in names(male_area_int_covs_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/covs/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_covs_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_no_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/no_race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_no_race_c_list[[plot_name]])
+for (plot_name in names(female_area_int_no_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/no_race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_no_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_race_c_list[[plot_name]])
+for (plot_name in names(female_area_int_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_covs_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/covs/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_covs_c_list[[plot_name]])
+for (plot_name in names(female_area_int_covs_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/covs/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_covs_c_list[[plot_name]])
 }
 
 # by raw
-for (plot_name in names(male_int_no_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/no_race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_no_race_r_list[[plot_name]])
+for (plot_name in names(male_area_int_no_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/no_race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_no_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(male_int_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_race_r_list[[plot_name]])
+for (plot_name in names(male_area_int_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(male_int_covs_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/covs/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_covs_r_list[[plot_name]])
+for (plot_name in names(male_area_int_covs_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/covs/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_covs_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_no_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/no_race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_no_race_r_list[[plot_name]])
+for (plot_name in names(female_area_int_no_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/no_race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_no_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_race_r_list[[plot_name]])
+for (plot_name in names(female_area_int_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_covs_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/covs/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_covs_r_list[[plot_name]])
+for (plot_name in names(female_area_int_covs_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/covs/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_covs_r_list[[plot_name]])
 }
 
 # by z-score
-for (plot_name in names(male_int_no_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/no_race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_no_race_z_list[[plot_name]])
+for (plot_name in names(male_area_int_no_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/no_race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_no_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(male_int_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_race_z_list[[plot_name]])
+for (plot_name in names(male_area_int_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(male_int_covs_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_internal/covs/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_int_covs_z_list[[plot_name]])
+for (plot_name in names(male_area_int_covs_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_internal/covs/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_int_covs_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_no_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/no_race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_no_race_z_list[[plot_name]])
+for (plot_name in names(female_area_int_no_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/no_race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_no_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_race_z_list[[plot_name]])
+for (plot_name in names(female_area_int_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_int_covs_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_internal/covs/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_int_covs_z_list[[plot_name]])
+for (plot_name in names(female_area_int_covs_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_internal/covs/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_int_covs_z_list[[plot_name]])
 }
 ```
 
@@ -627,33 +596,33 @@ race_combos <- unlist(
   recursive = FALSE
 )
 
-male_ext_no_race_c_list <- list()
-male_ext_race_c_list <- list()
-male_ext_covs_c_list <- list()
-female_ext_no_race_c_list <- list()
-female_ext_race_c_list <- list()
-female_ext_covs_c_list <- list()
+male_area_ext_no_race_c_list <- list()
+male_area_ext_race_c_list <- list()
+male_area_ext_covs_c_list <- list()
+female_area_ext_no_race_c_list <- list()
+female_area_ext_race_c_list <- list()
+female_area_ext_covs_c_list <- list()
 
-male_ext_no_race_r_list <- list()
-male_ext_race_r_list <- list()
-male_ext_covs_r_list <- list()
-female_ext_no_race_r_list <- list()
-female_ext_race_r_list <- list()
-female_ext_covs_r_list <- list()
+male_area_ext_no_race_r_list <- list()
+male_area_ext_race_r_list <- list()
+male_area_ext_covs_r_list <- list()
+female_area_ext_no_race_r_list <- list()
+female_area_ext_race_r_list <- list()
+female_area_ext_covs_r_list <- list()
 
-male_ext_no_race_z_list <- list()
-male_ext_race_z_list <- list()
-male_ext_covs_z_list <- list()
-female_ext_no_race_z_list <- list()
-female_ext_race_z_list <- list()
-female_ext_covs_z_list <- list()
+male_area_ext_no_race_z_list <- list()
+male_area_ext_race_z_list <- list()
+male_area_ext_covs_z_list <- list()
+female_area_ext_no_race_z_list <- list()
+female_area_ext_race_z_list <- list()
+female_area_ext_covs_z_list <- list()
 
 for (combo in race_combos) {
   race_label <- paste(combo, collapse = "_")
   
   # by centile predictors
     # by trajectory score
-  male_ext_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
@@ -661,7 +630,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - No Demographic Covariates"
   )
   
-  male_ext_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
@@ -669,7 +638,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - Race as Covariate"
   )
   
-  male_ext_covs_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_covs_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
@@ -677,7 +646,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_ext_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
@@ -685,7 +654,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Centile Predictors - No Demographic Covariates"
   )
   
-  female_ext_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
@@ -693,7 +662,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Centile Predictors - Race as Covariate"
   )
   
-  female_ext_covs_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_covs_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_centile",
@@ -703,7 +672,7 @@ for (combo in race_combos) {
   
   # for raw predictors
     # by trajectory score
-  male_ext_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
@@ -711,7 +680,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - No Demographic Covariates"
   )
   
-  male_ext_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
@@ -719,7 +688,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - Race as Covariate"
   )
   
-  male_ext_covs_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_covs_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
@@ -727,7 +696,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_ext_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
@@ -735,7 +704,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Raw Predictors - No Demographic Covariates"
   )
   
-  female_ext_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
@@ -743,7 +712,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Raw Predictors - Race as Covariate"
   )
   
-  female_ext_covs_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_covs_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_raw",
@@ -753,7 +722,7 @@ for (combo in race_combos) {
   
   # for z_score predictors
     # by trajectory score
-  male_ext_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
@@ -761,7 +730,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
   )
   
-  male_ext_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
@@ -769,7 +738,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - Race as Covariate"
   )
   
-  male_ext_covs_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_ext_covs_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
@@ -777,7 +746,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_ext_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
@@ -785,7 +754,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
   )
   
-  female_ext_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
@@ -793,7 +762,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Z-Score Predictors - Race as Covariate"
   )
   
-  female_ext_covs_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_ext_covs_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_syn_external_r_z_score",
@@ -805,96 +774,96 @@ for (combo in race_combos) {
 
 ```{r}
 # by centile
-for (plot_name in names(male_ext_no_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/no_race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_no_race_c_list[[plot_name]])
+for (plot_name in names(male_area_ext_no_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/no_race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_no_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(male_ext_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_race_c_list[[plot_name]])
+for (plot_name in names(male_area_ext_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(male_ext_covs_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/covs/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_covs_c_list[[plot_name]])
+for (plot_name in names(male_area_ext_covs_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/covs/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_covs_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_no_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/no_race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_no_race_c_list[[plot_name]])
+for (plot_name in names(female_area_ext_no_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/no_race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_no_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_race_c_list[[plot_name]])
+for (plot_name in names(female_area_ext_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_covs_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/covs/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_covs_c_list[[plot_name]])
+for (plot_name in names(female_area_ext_covs_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/covs/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_covs_c_list[[plot_name]])
 }
 
 # by raw
-for (plot_name in names(male_ext_no_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/no_race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_no_race_r_list[[plot_name]])
+for (plot_name in names(male_area_ext_no_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/no_race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_no_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(male_ext_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_race_r_list[[plot_name]])
+for (plot_name in names(male_area_ext_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(male_ext_covs_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/covs/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_covs_r_list[[plot_name]])
+for (plot_name in names(male_area_ext_covs_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/covs/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_covs_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_no_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/no_race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_no_race_r_list[[plot_name]])
+for (plot_name in names(female_area_ext_no_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/no_race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_no_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_race_r_list[[plot_name]])
+for (plot_name in names(female_area_ext_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_covs_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/covs/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_covs_r_list[[plot_name]])
+for (plot_name in names(female_area_ext_covs_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/covs/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_covs_r_list[[plot_name]])
 }
 
 # by z-score
-for (plot_name in names(male_ext_no_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/no_race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_no_race_z_list[[plot_name]])
+for (plot_name in names(male_area_ext_no_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/no_race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_no_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(male_ext_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_race_z_list[[plot_name]])
+for (plot_name in names(male_area_ext_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_external/race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_ext_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(male_ext_covs_z_list)) {
+for (plot_name in names(male_area_ext_covs_z_list)) {
   file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/covs/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_ext_covs_z_list[[plot_name]])
+  ggsave(filename = file_path, plot = male_area_ext_covs_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_no_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/no_race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_no_race_z_list[[plot_name]])
+for (plot_name in names(female_area_ext_no_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/no_race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_no_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_race_z_list[[plot_name]])
+for (plot_name in names(female_area_ext_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_ext_covs_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/covs/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_ext_covs_z_list[[plot_name]])
+for (plot_name in names(female_area_ext_covs_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_external/covs/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_ext_covs_z_list[[plot_name]])
 }
 ```
 
@@ -906,33 +875,33 @@ race_combos <- unlist(
   recursive = FALSE
 )
 
-male_dep_no_race_c_list <- list()
-male_dep_race_c_list <- list()
-male_dep_covs_c_list <- list()
-female_dep_no_race_c_list <- list()
-female_dep_race_c_list <- list()
-female_dep_covs_c_list <- list()
+male_area_dep_no_race_c_list <- list()
+male_area_dep_race_c_list <- list()
+male_area_dep_covs_c_list <- list()
+female_area_dep_no_race_c_list <- list()
+female_area_dep_race_c_list <- list()
+female_area_dep_covs_c_list <- list()
 
-male_dep_no_race_r_list <- list()
-male_dep_race_r_list <- list()
-male_dep_covs_r_list <- list()
-female_dep_no_race_r_list <- list()
-female_dep_race_r_list <- list()
-female_dep_covs_r_list <- list()
+male_area_dep_no_race_r_list <- list()
+male_area_dep_race_r_list <- list()
+male_area_dep_covs_r_list <- list()
+female_area_dep_no_race_r_list <- list()
+female_area_dep_race_r_list <- list()
+female_area_dep_covs_r_list <- list()
 
-male_dep_no_race_z_list <- list()
-male_dep_race_z_list <- list()
-male_dep_covs_z_list <- list()
-female_dep_no_race_z_list <- list()
-female_dep_race_z_list <- list()
-female_dep_covs_z_list <- list()
+male_area_dep_no_race_z_list <- list()
+male_area_dep_race_z_list <- list()
+male_area_dep_covs_z_list <- list()
+female_area_dep_no_race_z_list <- list()
+female_area_dep_race_z_list <- list()
+female_area_dep_covs_z_list <- list()
 
 for (combo in race_combos) {
   race_label <- paste(combo, collapse = "_")
   
   # by centile predictors
     # by trajectory score
-  male_dep_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
@@ -940,7 +909,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - No Demographic Covariates"
   )
   
-  male_dep_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
@@ -948,7 +917,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - Race as Covariate"
   )
   
-  male_dep_covs_c_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_covs_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
@@ -956,7 +925,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Centile Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_dep_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_no_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
@@ -964,7 +933,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Centile Predictors - No Demographic Covariates"
   )
   
-  female_dep_race_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_race_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
@@ -972,7 +941,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Centile Predictors - Race as Covariate"
   )
   
-  female_dep_covs_c_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_covs_c_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_centile",
@@ -982,7 +951,7 @@ for (combo in race_combos) {
   
   # for raw predictors
     # by trajectory score
-  male_dep_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
@@ -990,7 +959,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - No Demographic Covariates"
   )
   
-  male_dep_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
@@ -998,7 +967,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - Race as Covariate"
   )
   
-  male_dep_covs_r_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_covs_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
@@ -1006,7 +975,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Raw Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_dep_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_no_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
@@ -1014,7 +983,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Raw Predictors - No Demographic Covariates"
   )
   
-  female_dep_race_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_race_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
@@ -1022,7 +991,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Raw Predictors - Race as Covariate"
   )
   
-  female_dep_covs_r_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_covs_r_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_raw",
@@ -1032,7 +1001,7 @@ for (combo in race_combos) {
   
   # for z_score predictors
     # by trajectory score
-  male_dep_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
@@ -1040,7 +1009,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
   )
   
-  male_dep_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
@@ -1048,7 +1017,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - Race as Covariate"
   )
   
-  male_dep_covs_z_list[[race_label]] <- plot_brain_residual_diff(
+  male_area_dep_covs_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_male_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
@@ -1056,7 +1025,7 @@ for (combo in race_combos) {
     subtitle = "Male - Cortical Thickness Z-Score Predictors - Race, Income, and Education as Covariates"
   )
   
-  female_dep_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_no_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
@@ -1064,7 +1033,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Z-Score Predictors - No Demographic Covariates"
   )
   
-  female_dep_race_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_race_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_race,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
@@ -1072,7 +1041,7 @@ for (combo in race_combos) {
     subtitle = "Female - Cortical Thickness Z-Score Predictors - Race as Covariate"
   )
   
-  female_dep_covs_z_list[[race_label]] <- plot_brain_residual_diff(
+  female_area_dep_covs_z_list[[race_label]] <- plot_brain_residual_diff(
     brain_data_female_predicted_w_covs,
     race_subset = combo,
     residual_col = "resid_cbcl_scr_dsm5_depress_r_z_score",
@@ -1084,95 +1053,95 @@ for (combo in race_combos) {
 
 ```{r}
 # by centile
-for (plot_name in names(male_dep_no_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/no_race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_no_race_c_list[[plot_name]])
+for (plot_name in names(male_area_dep_no_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/no_race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_no_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(male_dep_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_race_c_list[[plot_name]])
+for (plot_name in names(male_area_dep_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(male_dep_covs_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/covs/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_covs_c_list[[plot_name]])
+for (plot_name in names(male_area_dep_covs_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/covs/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_covs_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_no_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/no_race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_no_race_c_list[[plot_name]])
+for (plot_name in names(female_area_dep_no_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/no_race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_no_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_race_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/race/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_race_c_list[[plot_name]])
+for (plot_name in names(female_area_dep_race_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/race/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_race_c_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_covs_c_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/covs/c", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_covs_c_list[[plot_name]])
+for (plot_name in names(female_area_dep_covs_c_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/covs/c", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_covs_c_list[[plot_name]])
 }
 
 # by raw
-for (plot_name in names(male_dep_no_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/no_race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_no_race_r_list[[plot_name]])
+for (plot_name in names(male_area_dep_no_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/no_race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_no_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(male_dep_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_race_r_list[[plot_name]])
+for (plot_name in names(male_area_dep_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(male_dep_covs_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/covs/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_covs_r_list[[plot_name]])
+for (plot_name in names(male_area_dep_covs_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/covs/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_covs_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_no_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/no_race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_no_race_r_list[[plot_name]])
+for (plot_name in names(female_area_dep_no_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/no_race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_no_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_race_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/race/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_race_r_list[[plot_name]])
+for (plot_name in names(female_area_dep_race_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/race/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_race_r_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_covs_r_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/covs/r", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_covs_r_list[[plot_name]])
+for (plot_name in names(female_area_dep_covs_r_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/covs/r", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_covs_r_list[[plot_name]])
 }
 
 # by z-score
-for (plot_name in names(male_dep_no_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/no_race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_no_race_z_list[[plot_name]])
+for (plot_name in names(male_area_dep_no_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/no_race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_no_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(male_dep_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_race_z_list[[plot_name]])
+for (plot_name in names(male_area_dep_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(male_dep_covs_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_external/covs/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = male_dep_covs_z_list[[plot_name]])
+for (plot_name in names(male_area_dep_covs_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/male_area_depression/covs/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = male_area_dep_covs_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_no_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/no_race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_no_race_z_list[[plot_name]])
+for (plot_name in names(female_area_dep_no_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/no_race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_no_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_race_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/race/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_race_z_list[[plot_name]])
+for (plot_name in names(female_area_dep_race_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/race/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_area_dep_race_z_list[[plot_name]])
 }
 
-for (plot_name in names(female_dep_covs_z_list)) {
-  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_external/covs/z", paste0(plot_name, ".png"))
-  ggsave(filename = file_path, plot = female_dep_covs_z_list[[plot_name]])
+for (plot_name in names(female_area_dep_covs_z_list)) {
+  file_path <- file.path("~/Library/CloudStorage/Box-Box/female_area_depression/covs/z", paste0(plot_name, ".png"))
+  ggsave(filename = file_path, plot = female_areaf_dep_covs_z_list[[plot_name]])
 }
 ```

@@ -512,7 +512,7 @@ server <- function(session, input, output) {
 
     folder_suffix <- visit_suffix_map[[timepoint]]
     folder <- paste0(sex, "_", measure_name, "_error", folder_suffix)
-    
+                          # change path below to where you have the folder saved to
     image_path <- paste0("~/Library/CloudStorage/Box-Box/", folder, race_filename, ".png")
     print(image_path)
     
@@ -565,7 +565,7 @@ server <- function(session, input, output) {
     
     folder_suffix <- visit_suffix_map[[timepoint]]
     folder <- paste0(sex, "_", measure_name, "_difference", folder_suffix)
-    
+                        # change path below to where you have the folder saved to
     image_path <- paste0("~/Library/CloudStorage/Box-Box/", folder, race_filename, ".png")
     print(image_path)
     

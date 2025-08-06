@@ -106,16 +106,16 @@ ui <- page_navbar(
   nav_panel("Home", id = "tab_1",
             layout_columns(
           
-              card(tags$h3(tags$b("Welcome to Our Interactive App!"), style = "text-align: center; margin-bottom: 10px;"),
+              card(tags$h3(tags$b("Welcome to our Interactive App!"), style = "text-align: center; margin-bottom: 10px;"),
                    tags$p(
                   "This project leverages data from the Adolescent Brain Cognitive Development (ABCD) Study, one of the largest ongoing
                    longitudinal study of adolescent neurodevelopment, to build normative brain development charts using MRI data from 
                   baseline, 2-year, and 4-year follow-up visits. We used Generalized Additive Models for Location, Scale, and Shape (GAMLSS) 
                   to model cortical thickness and surface area trajectories, stratified by sex. While 
                   these normative models aim to provide individualized neurodevelopmental reference points, we observed consistently higher 
-                  residual errors in Black, American Indian/Alaska Native, and Native Hawaiian/Pacific Islander youth compared to 
-                  White peers. This suggests that current normative models may exhibit racial bias. We further examined the downstream
-                  effects of this bias on psychopathology prediction, highlighting the need for more equitable modeling approaches in neuroscience."
+                  residual errors in Black, American Indian/Alaska Native, and Native Hawaiian/Pacific Islander youth compared to the
+                  White subgroup, even when race was exlcuded in model fitting. This suggests that current normative models may exhibit racial bias. We further examined the downstream
+                  effects of this bias on psychopathology prediction, highlighting the need for more equitable modeling approaches in clinical research and practice"
                   , style = "font-size: 13px; margin-bottom: 10px;"),
                   tags$p(
                     "This app provides an interactive overview of our project and methods. You can explore key aspects of our data, models, and results across different combinations of race, sex, visit time points, and brain measures.",
@@ -132,21 +132,29 @@ ui <- page_navbar(
                     tags$li(tags$b("Mental Health Models:"), " Review our Year 4 psychopathology prediction models and explore error patterns across race groups.", style = "font-size: 12px;")
                   )
                   ),
-              card(card_header(tags$h4("Methods", style = "text-align: center; margin: 0;")),
+              card(card_header(tags$h4("Data", style = "text-align: center; margin: 0;")),
                    tags$div(
-                     tags$span("Data", style = "font-weight: bold; font-size: 12px; margin: 0;"),
+                     tags$span("ABCD MRI Imaging data", style = "font-weight: bold; font-size: 12px; margin: 0;"),
                      style = "margin: 0; padding: 0; line-height: 0.1;"
                    ),
-              
               
                 tags$ul(style = "margin: 0; padding: 0; font-size: 12px;",
                         # first set of bullet points #tags$li("", style = "font-size: 12px; margin: 0;")
                         tags$li("MRI data from the Adolescent Brain Cognitive Development (ABCD) Study", style = " margin: 0; font-size: 12px;"),
                         tags$ul(
-                          tags$li("11,000 + adolescents in the study",style = "margin: 0; font-size: 12px;"),
-                          tags$li("Repeated MRI scans of individuals across time",style = "margin: 0; font-size: 12px;")
+                          tags$li("11,000+ adolescents in the study",style = "margin: 0; font-size: 12px;"),
+                          tags$li("Ages 9-10 at Baseline",style = "margin: 0; font-size: 12px;"),
+                          tags$li("Repeated MRI scans of individuals across time",style = "margin: 0; font-size: 12px;"),
+                          tags$li("Measures of cortical thickness and surface area at baseline, year 2, and year 4 follow-ups",style = "margin: 0; font-size: 12px;")
                           ),
-                        tags$li("The Child Behavior Checklist(CBCL) is a family of screening tests to assess behavioral and emotional problems in children. For our study, we use", style = " margin: 0; font-size: 12px;"),
+                ),
+                tags$div(
+                  tags$span("Child Behavior Checklist Score", style = "font-weight: bold; font-size: 12px; margin: 0;"),
+                  style = "margin: 0; padding: 0; line-height: 0.1;"
+                ),
+                tags$ul(style = "margin: 0; padding: 0; font-size: 12px;",
+                        tags$li("The Child Behavior Checklist(CBCL) a measure of behavioral and emotional problems in children. For our study, we use", style = " margin: 0; font-size: 12px;"),
+                        tags$ul(
                         tags$li("Internalizing Summary Score", style = "font-size: 12px; margin: 0;"), # this is the style i want
                         tags$ul(
                           tags$li("Summary of anxiety, depression, and somatic complaints",style = "margin: 0; font-size: 12px;"),
@@ -155,26 +163,47 @@ ui <- page_navbar(
                         tags$ul(
                           tags$li("Summary of social problems, thought problems, and attention problems, rule-breaking behaviour",style = "margin: 0; font-size: 12px;")
                         ),
-                        tags$li("Depressive Problems Score", style = "font-size: 12px; margin: 0; "),
+                        tags$li("Depressive Problems Score", style = "font-size: 12px; margin: 0; "),)
                 ),
-              tags$div(
-                tags$b("Modeling ", style = "margin: 0; padding: 0; line-height: 1;")),
-              tags$ul(
-              "Models fitted with the Generalized Additive Models for Location, Scale, and Shape (GAMLSS) R package.", style = "font-size: 12px; margin: 0;",
-              tags$li("Fitted cortical thickness and cortical surface area for each sex and brain region (284 total models)", style = "font-size: 12px; margin: 0; "),
-              tags$li("Harmonized MRI data from scanner-related variance across sites using the Longitudinal ComBat R package", style = "font-size: 12px; margin: 0; "),
-              tags$li("Note that race was not included in the model fitting process", style = "font-size: 12px; margin: 0; ")),
-              "For a rth region and sth sex, models for Cortical Thickness (CT) and Cortical Surface Area (CSA) were fit as following: margin: 0; ", style = "font-size: 12px; margin: 0; ",
-              layout_columns(col_widths = c(6, 6),
-              imageOutput("image_1",width = "100%", height = "auto"),
-              imageOutput("image_2",width = "100%", height = "auto")
-              ),
+                
+                imageOutput("image", width = "100%"),
+            
               #style = "height: 600px;" # controls height for card()
               ),
               
               
               
-              card(imageOutput("image", width = "100%"))
+              card(card_header(tags$h4("Modeling", style = "text-align: center; margin: 0;")),
+                tags$ul(style = "margin: 0; padding: 0; font-size: 12px;",
+                           tags$li(
+                             "Models fitted with the Generalized Additive Models for Location, Scale, and Shape (GAMLSS) R package.", style = "font-size: 12px; margin: 0;"),
+                           tags$ul(  
+                             tags$li("Fitted cortical thickness and cortical surface area for each sex and brain region (284 total models)", style = "font-size: 12px; margin: 0; "),
+                             tags$li("Harmonized MRI data from scanner-related variance across sites using the Longitudinal ComBat R package", style = "font-size: 12px; margin: 0; "),
+                             tags$li("Note that race was not included in the model fitting process", style = "font-size: 12px; margin: 0; "),
+                           ),),
+                   HTML(
+                     '<p style="font-size: 12px; margin: 0;">
+              For a r<sup>th</sup> region and s<sup>th</sup> sex, models for Cortical Thickness (CT) and Cortical Surface Area (CSA) were fit as following:
+                </p>'
+                   ),
+                   layout_columns(col_widths = c(5, 5),
+                                  imageOutput("image_1",width = "100%", height = "auto"),
+                                  imageOutput("image_2",width = "100%", height = "auto")
+                   ),
+                tags$p(
+                  "where", style = "margin: 0; padding: 0; font-size: 12px;"
+                ),
+                tags$ul(style = "margin: 0; padding: 0; font-size: 12px;",
+                        tags$ul(
+                          tags$li("α terms correspond to fixed effects of the intercept", style = "font-size: 12px; margin: 0;"), # this is the style i want
+                          tags$li("β terms correspond to fixed effects of age", style = "font-size: 12px; margin: 0;"),
+                          tags$li("γ terms correspond to subject-level random effects", style = "font-size: 12px; margin: 0; "),
+                          tags$li("pb and cs correspond to smooth functions to model nonlinear relationships", style = "font-size: 12px; margin: 0; "),
+                          tags$li("p corresponds to an optimal power transformation of age using GAMLSS functions", style = "font-size: 12px; margin: 0; "),
+                          )
+                ),
+                )
             )
   ),
   

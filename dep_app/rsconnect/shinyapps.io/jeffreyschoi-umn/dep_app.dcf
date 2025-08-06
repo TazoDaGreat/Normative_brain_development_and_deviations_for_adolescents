@@ -1,0 +1,12 @@
+name: dep_app
+title:
+username: jeffreyschoi-umn
+account: jeffreyschoi-umn
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15171705
+bundleId: 10737570
+url: https://jeffreyschoi-umn.shinyapps.io/dep_app/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

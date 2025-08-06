@@ -270,7 +270,7 @@ server <- function(session, input, output) {
     
     folder <- paste0(sex, "_", measure_name, "depression")
     # change path below to where you have the folder saved to
-    image_path <- paste0("~/Library/CloudStorage/Box-Box/shiny_final/shiny_iHate/jeff_stuff/", folder, "/", covs_name, "/", pred_name, "/", race_filename, ".png")
+    image_path <- paste0("~/", folder, "/", covs_name, "/", pred_name, "/", race_filename, ".png")
     print(image_path)
     
     list(

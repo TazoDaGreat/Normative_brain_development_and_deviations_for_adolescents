@@ -35,10 +35,35 @@ ui <- page_navbar(
   nav_panel("Home", id = "tab_1",
             layout_columns(
               col_widths = c(12, 12, 12),
-              card(tags$b("Welcome to our Interactive App!",style = "text-align: center; margin: 0;"),
-                   "Distributional modeling, also known as normative modeling, allows for the creation of centile curves to visualize the variation of a developmental phenotype as a function of age. Previous studies have utilized a variety of modeling approaches, including Bayesian regression, Gaussian processes, and Generalized Additive Models for Location, Scale, and Shape (GAMLSS) to model trajectories of cortical thickness and cortical surface area over the course of the human lifespan. Such studies typically incorporate a cross-sectional design, generally discarding non-baseline data from longitudinal data sources and failing to account for within-person changes across time. Additionally, while many studies plot centile curves separately for each sex and utilize random effects to account for site- and/or study-related variability, other demographic factors, such as race, are not considered in the distributional models.
-
-This project addresses these limitations through the creation of longitudinal distributional models for cortical thickness and surface area of adolescents ages 9 to 15, stratified by race and sex, for 70 different brain regions. Spatial and longitudinal results are visualized in this interactive dashboard – explore to learn more!",style = "font-size: 12px; margin: 0;"),
+              card(
+                tags$h3(tags$b("Welcome to Our Interactive App!"), style = "text-align: center; margin-bottom: 10px;"),
+                tags$p(
+                  "This project leverages data from the Adolescent Brain Cognitive Development (ABCD) Study, one of the largest ongoing
+                   longitudinal study of adolescent neurodevelopment, to build normative brain development charts using MRI data from 
+                  baseline, 2-year, and 4-year follow-up visits. We used Generalized Additive Models for Location, Scale, and Shape (GAMLSS) 
+                  to model cortical thickness and surface area trajectories, stratified by sex. While 
+                  these normative models aim to provide individualized neurodevelopmental reference points, we observed consistently higher 
+                  residual errors in Black, American Indian/Alaska Native, and Native Hawaiian/Pacific Islander youth compared to 
+                  White peers. This suggests that current normative models may exhibit racial bias. We further examined the downstream
+                  effects of this bias on psychopathology prediction, highlighting the need for more equitable modeling approaches in neuroscience."
+                  , style = "font-size: 13px; margin-bottom: 10px;"),
+                
+                
+                tags$p(
+                  "This app provides an interactive overview of our project and methods. You can explore key aspects of our data, models, and results across different combinations of race, sex, visit time points, and brain measures.",
+                  style = "font-size: 13px; margin-bottom: 10px;"
+                ),
+                tags$p(
+                  tags$b("Overview of Tabs:"), style = "font-size: 13px; margin-bottom: 5px;"
+                ),
+                tags$ul(
+                  tags$li(tags$b("Cortical Thickness:"), " Explore our GAMLSS-based normative models for cortical thickness across all brain regions.", style = "font-size: 12px;"),
+                  tags$li(tags$b("Cortical Surface Area:"), " Explore our GAMLSS-based normative models for cortical surface area across all brain regions.", style = "font-size: 12px;"),
+                  tags$li(tags$b("Prediction Error:"), " Compare model prediction errors across different combinations of race, sex, and visit time.", style = "font-size: 12px;"),
+                  tags$li(tags$b("Relative Difference:"), " Examine each race group's error deviation relative to the White reference group.", style = "font-size: 12px;"),
+                  tags$li(tags$b("Mental Health Models:"), " Review our Year 4 psychopathology prediction models and explore error patterns across race groups.", style = "font-size: 12px;")
+                )
+              ),
               card(card_header(tags$h4("Methods", style = "text-align: center; margin: 0;")),
                    tags$div(
                      tags$span("Data", style = "font-weight: bold; font-size: 12px; margin: 0;"),
@@ -263,16 +288,25 @@ This project addresses these limitations through the creation of longitudinal di
       title = "sidebar = sidebar(renderTex",
       div(
         tags$p(
-          "Our GAMLSS models account for individual-specific variablility, meaning we can obtain predicted growth curves specific for each individual in our sample.
-          Taking the average root mean square error (RMSE) from each individual's actual measure and their predicted meassure, we can see average errors by race and region.
-          This tab allows you to examine cortical thickness and surface area errors grouped by race and visit time point.
-          ",style = "margin-bottom: 5px; font-size: 14px;"),
-          tags$p(
-          "Things to note for this page:", style = "margin-bottom: 5px; font-size: 14px;"),
-          tags$li("Select between what brain measure, sex, race, and visit time point", style = " margin: 0; font-size: 12px;"),
-          tags$li("The gradient labels change depending on the selection. The same color on one image may not correspond with the same value after changing selection", style = " margin: 0; font-size: 12px;"),
-          tags$li("Selecting 'All' selects all races. Remove 'All' to individually select races", style = " margin: 0; font-size: 12px;"),
-          tags$li("Overall is an average of all individual time point errors", style = " margin: 0; font-size: 12px;"),
+          tags$strong("Prediction Error"),
+          style = "margin-bottom: 10px; font-size: 28px; "
+        ),
+        tags$p(
+          "Our GAMLSS models account for individual-specific variability, allowing us to generate personalized predicted growth curves for each participant in our sample.
+   By calculating the average root mean square error (RMSE) between each individual's actual brain measure and their predicted value, we quantify prediction error by race and brain region.
+   This tab lets you explore those errors for cortical thickness and surface area, grouped by race and visit time point.",
+          style = "margin-bottom: 10px; font-size: 16px;"
+        ),
+        tags$p(
+          tags$strong("Key notes for interpreting this page:"),
+          style = "margin-bottom: 5px; font-size: 16px;"
+        ),
+        tags$ul(
+          tags$li("Select between brain measure, sex, race, and visit time point.", style = "margin: 0; font-size: 14px;"),
+          tags$li("Gradient color scales adjust based on your selections. The same colors in different plots may not represent the same values.", style = "margin: 0; font-size: 14px;"),
+          tags$li("Selecting 'All' includes all race groups. To focus on specific groups, remove 'All' and choose races individually.", style = "margin: 0; font-size: 14px;"),
+          tags$li("'Overall' represents the average error across all available visit time points.", style = "margin: 0; font-size: 14px;")
+        )
       ),
       layout_columns(
         col_widths = c(2, 1, 6, 2),
@@ -329,10 +363,23 @@ This project addresses these limitations through the creation of longitudinal di
               title = "sidebar = sidebar(renderTex",
               div(
                 tags$p(
-                  "Our GAMLSS models account for individual-specific variablility, meaning we can obtain predicted growth curves specific for each individual in our sample.
-          Taking the average root mean square error (RMSE) from each individual's actual measure and their predicted meassure, we can see average errors by race and region.
-          This tab allows you to examine cortical thickness and surface area errors grouped by race and visit time point.",
-                  style = "margin-bottom: 5px; font-size: 14px;"
+                  tags$strong("Relative Difference"),
+                  style = "margin-bottom: 10px; font-size: 28px; "
+                ),
+                tags$p(
+                  "To better compare error differences across race groups, we compute a relative deviation score using the White subgroup as the reference.
+   In the plots, darker red regions indicate groups with higher average error relative to the White subgroup, while darker blue regions indicate lower average error.
+   These color gradients reflect the percent difference in average error compared to the White group."
+                ),
+                tags$p(
+                  tags$strong("Key notes for interpreting this page:"),
+                  style = "margin-bottom: 10px; font-size: 16px;"
+                ),
+                tags$ul(
+                  tags$li("Select between brain measure, sex, race, and visit time point.", style = "margin: 0; font-size: 14px;"),
+                  tags$li("Gradient color scales adjust based on your selections. The same colors in different plots may not represent the same values.", style = "margin: 0; font-size: 14px;"),
+                  tags$li("Selecting 'All' includes all race groups. To focus on specific groups, remove 'All' and choose races individually.", style = "margin: 0; font-size: 14px;"),
+                  tags$li("'Overall' represents the average error across all available visit time points.", style = "margin: 0; font-size: 14px;")
                 )
               ),
               layout_columns(

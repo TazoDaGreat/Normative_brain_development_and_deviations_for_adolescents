@@ -141,12 +141,21 @@ ui <- page_navbar(
               
                 tags$ul(style = "margin: 0; padding: 0; font-size: 12px;",
                         # first set of bullet points #tags$li("", style = "font-size: 12px; margin: 0;")
-                  
+                        tags$li("MRI data from the Adolescent Brain Cognitive Development (ABCD) Study", style = " margin: 0; font-size: 12px;"),
+                        tags$ul(
+                          tags$li("11,000 + adolescents in the study",style = "margin: 0; font-size: 12px;"),
+                          tags$li("Repeated MRI scans of individuals across time",style = "margin: 0; font-size: 12px;")
+                          ),
                         tags$li("The Child Behavior Checklist(CBCL) is a family of screening tests to assess behavioral and emotional problems in children. For our study, we use", style = " margin: 0; font-size: 12px;"),
-                        tags$li("MRI data from the Adolescent Brain Cognitive Development (ABCD) Study 11,000 + adolescents in the study Repeated MRI scans of individuals across time, at least one timepoint", style = " margin: 0; font-size: 12px;"),
                         tags$li("Internalizing Summary Score", style = "font-size: 12px; margin: 0;"), # this is the style i want
+                        tags$ul(
+                          tags$li("Summary of anxiety, depression, and somatic complaints",style = "margin: 0; font-size: 12px;"),
+                        ),
                         tags$li("Externalizing Summary Score", style = "font-size: 12px; margin: 0;"),
-                        tags$li("Depressive Problems Scor", style = "font-size: 12px; margin: 0; "),
+                        tags$ul(
+                          tags$li("Summary of social problems, thought problems, and attention problems, rule-breaking behaviour",style = "margin: 0; font-size: 12px;")
+                        ),
+                        tags$li("Depressive Problems Score", style = "font-size: 12px; margin: 0; "),
                 ),
               tags$div(
                 tags$b("Modeling ", style = "margin: 0; padding: 0; line-height: 1;")),

@@ -575,7 +575,7 @@ ui <- page_navbar(
             ),
   ),
   
-  nav_panel("Mental Health Prediction",
+  nav_panel("Internalizing Score Prediction",
             id = "tab_6",
             layout_columns(
               col_widths = c(12, 12),
@@ -584,17 +584,43 @@ ui <- page_navbar(
                 title = "sidebar = sidebar(renderTex",
                 div(
                   tags$p(
-                    "Our GAMLSS models account for individual-specific variablility, meaning we can obtain predicted growth curves specific for each individual in our sample.
-          Taking the average root mean square error (RMSE) from each individual's actual measure and their predicted meassure, we can see average errors by race and region.
-          This tab allows you to examine cortical thickness and surface area errors grouped by race and visit time point.
-          ",style = "margin-bottom: 5px; font-size: 14px;"),
+                    tags$strong("Mental Health Prediciton - Internalizing Score"),
+                    style = "margin-bottom: 10px; font-size: 28px; "
+                  ),
                   tags$p(
-                    "Things to note for this page:", style = "margin-bottom: 5px; font-size: 14px;"),
-                  tags$li("Select between what brain measure, sex, race, and visit time point", style = " margin: 0; font-size: 12px;"),
-                  tags$li("The gradient labels change depending on the selection. The same color on one image may not correspond with the same value after changing selection", style = " margin: 0; font-size: 12px;"),
-                  tags$li("Selecting 'All' selects all races. Remove 'All' to individually select races", style = " margin: 0; font-size: 12px;"),
-                  tags$li("Overall is an average of all individual time point errors", style = " margin: 0; font-size: 12px;"),
-                ),
+                    "In order to investigate the downstream effects of racial bias in normative modeling,
+                    we fit Generalized Linear Models (Poisson family) to predict psychopathology at Year 4
+                    and examined how different predictors, covariates, and outcome variables influence
+                    these predictions. Here, we predict Internalizing Summary Score. Using the White 
+                    subgroup as a reference, we compare the relative deviation scores across racial
+                    subgroups by brain region. To assess the implications of bias in our normative models,
+                    we compared multiple trajectory score predictors to observe how predictive performance
+                    and racial bias may change. Furthermore, we compare the impact of including or
+                    excluding race and other relevant covariates, allowing us to assess whether modeling
+                    decisions alone are sufficient to mitigate racial bias.
+                    ",style = "margin-bottom: 5px; font-size: 16px;"),
+                  tags$p(
+                    tags$strong("Key notes for interpreting this page:"),
+                    style = "margin-bottom: 10px; font-size: 16px;"
+                  ),
+                  tags$ul(
+                    tags$li("Select between brain measure, sex, race, model predictors, and model covariates.", style = "margin: 0; font-size: 14px;"),
+                    tags$li("Model predictors are trajectory scores, collected from least squares regression estimates of individual change:", style = "margin: 0; font-size: 14px;"),
+                    tags$ul(
+                      tags$li("Centile score – reflects relative position within the normative distribution (shown to have racial bias)", style = "margin: 0; font-size: 14px;"),
+                      tags$li("Raw measure – captures change in original MRI imaging measurement", style = "margin: 0; font-size: 14px;"),
+                      tags$li("Z-score – standardized deviation from the population mean", style = "margin: 0; font-size: 14px;")
+                    ),
+                    tags$li("Model covariates are intended to account for race-related sources of variation. We compare models with:", style = "margin: 0; font-size: 14px;"),
+                    tags$ul(
+                      tags$li("No covariates", style = "margin: 0; font-size: 14px;"),
+                      tags$li("Race as a covariate", style = "margin: 0; font-size: 14px;"),
+                      tags$li("Race, household income, and parental education as covariates", style = "margin: 0; font-size: 14px;")
+                    ),
+                    tags$li("Gradient color scales adjust based on your selections. The same colors in different plots may not represent the same values.", style = "margin: 0; font-size: 14px;"),
+                    tags$li("Selecting 'All' includes all race groups. To focus on specific groups, remove 'All' and choose races individually.", style = "margin: 0; font-size: 14px;"),
+                  ),
+                  ),
                 layout_columns(
                   col_widths = c(2, 2, 2, 2, 2, 2),
                   
@@ -656,7 +682,7 @@ ui <- page_navbar(
   ),
   
     nav_panel("About Us",
-    value = "tab_6",
+    value = "tab_7",
     div(
       tags$p(
         tags$strong("About Us"),
@@ -704,7 +730,7 @@ ui <- page_navbar(
   
   
   nav_panel("Acknowledgments",
-            value = "tab_7",
+            value = "tab_8",
             
             layout_columns(
               card(

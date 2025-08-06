@@ -134,7 +134,7 @@ ui <- page_navbar(
                   ),
               card(card_header(tags$h4("Data", style = "text-align: center; margin: 0;")),
                    tags$div(
-                     tags$span("ABCD MRI Imaging data", style = "font-weight: bold; font-size: 12px; margin: 0;"),
+                     tags$span("ABCD MRI Imaging Data", style = "font-weight: bold; font-size: 12px; margin: 0;"),
                      style = "margin: 0; padding: 0; line-height: 0.1;"
                    ),
               
@@ -233,7 +233,7 @@ ui <- page_navbar(
             ),
             layout_columns(col_widths = c(12, 6, 6), 
                            card( title ="sidebar = sidebar(renderTex",
-                                                         selectInput("brain_region","Select area of brain to model cortical thickness:",
+                                                         selectInput("brain_region","Select brain region to model cortical thickness:",
                                                                      c(
                                                                        "Left Hemisphere Banks of Superior Temporal Sulcus",
                                                                        "Left Hemisphere Caudal Anterior Cingulate",
@@ -342,7 +342,7 @@ ui <- page_navbar(
             ),
             layout_columns(col_widths = c(12, 6, 6),
                            card(title ="sidebar = sidebar(renderTex",
-                                                         selectInput("type2", "Select area of brain to model cortical surface area:",
+                                                         selectInput("type2", "Select brain region to model cortical surface area:",
                                                                       c(
                                                                        "Left Hemisphere Banks of Superior Temporal Sulcus",
                                                                        "Left Hemisphere Caudal Anterior Cingulate",
@@ -655,13 +655,134 @@ ui <- page_navbar(
             ),
   ),
   
-  nav_panel("About Us",
-            value = "tab_6",
-            layout_sidebar(
-              sidebar = sidebar(
-                selectInput("type4", "What event do you want to visualize", choices = c("kaka"), selected = "kaka")
+    nav_panel("About Us",
+    value = "tab_6",
+    div(
+      tags$p(
+        tags$strong("About Us"),
+        style = "margin-bottom: 10px; font-size: 28px; "
+      )
+    ),
+    layout_columns(
+      card(
+        tags$p(
+          tags$strong("Jeffrey Choi"),
+          style = "margin-bottom: 10px; font-size: 20px; "
+        ),
+        tags$p(
+          "Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info ",
+          style = "margin-bottom: 5px; font-size: 14px;"
+        ),
+      ),
+      
+      card(
+        tags$p(
+          tags$strong("Quique"),
+          style = "margin-bottom: 10px; font-size: 20px; "
+        ),
+        tags$p(
+          "Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info 
+          Info Info Info Info Info Info Info Info Info Info Info Info Info Info Info ",
+          style = "margin-bottom: 5px; font-size: 14px;"
+        ),
+      ),
+    )
+  ),
+  
+  
+  nav_panel("Acknowledgments",
+            value = "tab_7",
+            
+            layout_columns(
+              card(
+                tags$p(
+                  tags$strong("Limitations"),
+                  style = "margin-bottom: 10px; font-size: 20px; "
+                ),
+                tags$ul(
+                  tags$li("The ABCD Study is one of the most demographically representative neuroimaging datasets available", style = "margin-bottom: 5px; font-size: 14px;"),
+                  tags$ul(
+                    tags$li("Our results highlight the need for developing methods to account for racial bias", style = "margin-bottom: 5px; font-size: 14px;"),
+                  ),
+                  tags$li("Our version of the ACBD data does not include all Year 4 participants", style = "margin-bottom: 5px; font-size: 14px;"),
+                  tags$ul(
+                    tags$li("Our sample distribution is not strictly due to study dropout", style = "margin-bottom: 5px; font-size: 14px;"),
+                    tags$li("Prior research suggests that study dropout is associated with socioeconomic status", style = "margin-bottom: 5px; font-size: 14px;"),
+                    tags$li("Model performance may disproportionately affect underrepresented groups", style = "margin-bottom: 5px; font-size: 14px;"),
+                  ),
+                ),
+                tags$p(
+                  tags$strong("Notes"),
+                  style = "margin-bottom: 10px; font-size: 20px; "
+                ),
+                tags$p(
+                  "It is important to emphasize that the bias observed in this project is not a result of inherent
+                  biological differences between racial groups alone. Race is a social construct, a strict
+                  classification based on perceived physical characteristics, and is strongly correlated with other
+                  socioeconomic and environmental factors that can also influence adolescent brain development. Without
+                  comprehensive representation and genetic ancestry information in neuroimaging data, it becomes
+                  challenging to identify a reference group that accurately reflects variation across different
+                  demographic groups.",
+                  style = "margin-bottom: 5px; font-size: 14px;"
+                ),
               ),
-              leafletOutput("aboutMap")
+              
+              card(
+                tags$p(
+                  tags$strong("Acknowledgments"),
+                  style = "margin-bottom: 10px; font-size: 20px; "
+                ),
+                tags$p(
+                  "We would like to thank Mark Fiecas for his mentorship
+                    in our project and during the 2025 Equitable Data Science
+                    REU. We would also like to thank Kelly, Kirsten, and Ellery
+                    in advising us throughout our project, and also Ellery and
+                    Andres for teaching the R course over the summer.
+                    Finally, we are grateful to the UMN School of Public Health
+                    and the NSF for supporting and funding our summer!",
+                  style = "margin-bottom: 5px; font-size: 14px;"
+                ),
+                
+                tags$p(
+                  tags$strong("References"),
+                  style = "margin-bottom: 10px; font-size: 20px; "
+                ),
+                tags$p(
+                  'Beer JC, Tustison NJ, Cook PA, Davatzikos C, Sheline YI, Shinohara RT, Linn KA. (2020) Longitudinal ComBat: A method for harmonizing longitudinal multi-scanner imaging data. NeuroImage. In press. https://doi.org/10.1016/j.neuroimage.2020.117129.',
+                  style = "margin-bottom: 2px; font-size: 14px;"
+                ),
+                tags$p(
+                  'Bethlehem, R. A. I., Seidlitz, J., White, S. R., Vogel, J. W., Anderson, K. M., Adamson, C., ... & Schaare, H. L. (2022). Brain charts for the human lifespan. Nature, 604(7906), 525-533.',
+                  style = "margin-bottom: 2px; font-size: 14px;"
+                ),
+                tags$p(
+                  'Rutherford, Saige, et al. "To which reference class do you belong? Measuring racial fairness of reference classes with normative modeling." arXiv preprint arXiv:2407.19114 (2024), https://arxiv.org/pdf/2407.19114.',
+                  style = "margin-bottom: 2px; font-size: 14px;"
+                ),
+                tags$p(
+                  'Sarah W. Feldstein Ewing, Genevieve F. Dash, Wesley K. Thompson, Chase Reuter, Vanessa G. Diaz, Andrey Anokhin, Linda Chang, Linda B. Cottler, Gayathri J. Dowling, Kimberly LeBlanc, Robert A. Zucker, Susan F. Tapert, Sandra A. Brown, Hugh Garavan, Measuring retention within the adolescent brain cognitive development (ABCD)SM study, Developmental Cognitive Neuroscience, Volume 54, 2022, https://doi.org/10.1016/j.dcn.2022.101081.',
+                  style = "margin-bottom: 2px; font-size: 14px;"
+                ),
+                tags$p(
+                  'Vincent Pandolfi, Caroline I. Magyar, Charles A. Dill, An initial psychometric evaluation of the CBCL 6–18 in a sample of youth with autism spectrum disorders, Research in Autism Spectrum Disorders, Volume 6, Issue 1, 2012, https://doi.org/10.1016/j.rasd.2011.03.009.',
+                  style = "margin-bottom: 2px; font-size: 14px;"
+                ),
+                
+              ),
+        
             )
   )
   

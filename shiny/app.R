@@ -211,6 +211,26 @@ ui <- page_navbar(
   
   #############
   nav_panel("Cortical Thickness", id = "tab_2",
+            div(
+              tags$p(
+                tags$strong("Cortical Thickness"),
+                style = "margin-bottom: 10px; font-size: 28px; "
+              ),
+              tags$p(
+                "Normative modeling allows for the creation of centile charts,
+                indicating how a patient’s cortical thickness measurement compares to
+                the reference population. Just like pediatric growth charts for height or weight, the charts below show 
+                where an adolescent patient lies in terms of percentiles for their age and sex, allowing for the identification of
+                atypical deviations from the typical development."
+              ),
+              tags$p(
+                "On this page, you can:"
+              ),
+              tags$ul(
+                tags$li("Explore the growth charts of cortical thickness on various regions of the brain over age"),
+                tags$li("Compare trajectories between male and female cortical thickness development")
+              )
+            ),
             layout_columns(col_widths = c(12, 6, 6), 
                            card( title ="sidebar = sidebar(renderTex",
                                                          selectInput("brain_region","Select area of brain to model cortical thickness:",
@@ -300,9 +320,29 @@ ui <- page_navbar(
 
   nav_panel("Cortical Surface Area",
             id = "tab_3",
+            div(
+              tags$p(
+                tags$strong("Cortical Surface Area"),
+                style = "margin-bottom: 10px; font-size: 28px; "
+              ),
+              tags$p(
+                "Normative modeling allows for the creation of centile charts,
+                indicating how a patient’s cortical surface area measurement compares to
+                the reference population. Just like pediatric growth charts for height or weight, the charts below show 
+                where an adolescent patient lies in terms of percentiles for their age and sex, allowing for the identification of
+                atypical deviations from the typical development."
+              ),
+              tags$p(
+                "On this page, you can:"
+              ),
+              tags$ul(
+                tags$li("Explore the growth charts of cortical surface area on various regions of the brain over age"),
+                tags$li("Compare trajectories between male and female cortical surface area development")
+              )
+            ),
             layout_columns(col_widths = c(12, 6, 6),
                            card(title ="sidebar = sidebar(renderTex",
-                                                         selectInput("type2", "Select area of brain to model cortical thickness:",
+                                                         selectInput("type2", "Select area of brain to model cortical surface area:",
                                                                       c(
                                                                        "Left Hemisphere Banks of Superior Temporal Sulcus",
                                                                        "Left Hemisphere Caudal Anterior Cingulate",
@@ -390,9 +430,6 @@ ui <- page_navbar(
             id = "tab_4",
             layout_columns(
               col_widths = c(12, 12),
-              card(
-                style = "height: 250px;",
-                title = "sidebar = sidebar(renderTex",
                 div(
                   tags$p(
                     tags$strong("Prediction Error"),
@@ -415,6 +452,9 @@ ui <- page_navbar(
                     tags$li("'Overall' represents the average error across all available visit time points.", style = "margin: 0; font-size: 14px;")
                   )
                 ),
+              card(
+                style = "height: 250px;",
+                title = "sidebar = sidebar(renderTex",
                 layout_columns(
                   col_widths = c(2, 1, 6, 2),
                   
@@ -465,9 +505,6 @@ ui <- page_navbar(
             id = "tab_5",
             layout_columns(
               col_widths = c(12, 12),
-              card(
-                style = "height: 250px;",
-                title = "sidebar = sidebar(renderTex",
                 div(
                   tags$p(
                     tags$strong("Relative Difference"),
@@ -489,6 +526,9 @@ ui <- page_navbar(
                     tags$li("'Overall' represents the average error across all available visit time points.", style = "margin: 0; font-size: 14px;")
                   )
                 ),
+              card(
+                style = "height: 250px;",
+                title = "sidebar = sidebar(renderTex",
                 layout_columns(
                   col_widths = c(2, 1, 6, 2),
                   

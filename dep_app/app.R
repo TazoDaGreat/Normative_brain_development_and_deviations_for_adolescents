@@ -30,7 +30,7 @@ library(tidyr)
 
 # Define UI for application that draws a histogram
 ui <- page_navbar(
-  title = "Racial Bias and Normative Modeling",
+  title = "Racial Bias in Normative Modeling",
   # helps deal with drop down being cut off
   
   header = tags$head(tags$style(HTML("

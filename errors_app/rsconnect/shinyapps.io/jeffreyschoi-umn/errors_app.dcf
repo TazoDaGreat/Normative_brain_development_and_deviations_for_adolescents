@@ -1,0 +1,10 @@
+name: errors_app
+title:
+username: jeffreyschoi-umn
+account: jeffreyschoi-umn
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15171882
+bundleId: 10737711
+url: https://jeffreyschoi-umn.shinyapps.io/errors_app/
+version: 1

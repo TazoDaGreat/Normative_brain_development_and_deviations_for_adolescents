@@ -290,7 +290,7 @@ server <- function(session, input, output) {
     folder_suffix <- visit_suffix_map[[timepoint]]
     folder <- paste0(sex, "_", measure_name, "_difference", folder_suffix)
     
-    image_path <- paste0("~/Library/CloudStorage/Box-Box/shiny_final/shiny_iHate_2/", folder, race_filename, ".png")
+    image_path <- paste0(folder, race_filename, ".png")
     print(image_path)
     
     list(

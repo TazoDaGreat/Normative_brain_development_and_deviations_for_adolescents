@@ -696,13 +696,13 @@ ui <- page_navbar(
           style = "margin-bottom: 10px; font-size: 20px; "
         ),
         tags$p(
-          "Hello! I’m Jeffrey and I am a rising senior at New York University
-          studying data science and math. I’m originally from New Jersey, but
-          I’ve lived in a few different places, including Indiana when I was
+          "Jeffrey is currently a rising senior at New York University
+          studying data science and math. He is originally from New Jersey, but
+          has lived in a few different places, including Indiana when he was
           younger, so the move from New York to Minneapolis hasn’t felt like too
-          much of a stretch. When I’m not working on a coding project or deep
-          into data, I love spending time golfing, rock climbing, and ranking
-          restaurants I’ve been to on Beli. After undergrad, I plan on pursuing
+          much of a stretch. When not working on a coding project or deep
+          into data, Jeffrey loves spending time golfing, rock climbing, and ranking
+          restaurants he's been to on Beli. After undergrad, he plans on pursuing
           a PhD in biostatistics or a related field, with the goal of doing more
           research in the application of statistical methods or AI. ",
           style = "margin-bottom: 5px; font-size: 14px;"
@@ -719,7 +719,7 @@ ui <- page_navbar(
           " / ",
           tags$a(href = "https://github.com/jeffreyschoi", "github.com/jeffreyschoi", target = "_blank"),
           style = "font-size: 14px;"
-        )
+        ),
       
       card(
         tags$p(

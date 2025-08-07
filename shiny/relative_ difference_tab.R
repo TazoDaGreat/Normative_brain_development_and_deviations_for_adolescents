@@ -31,12 +31,6 @@ library(tidyr)
 # Define UI for application that draws a histogram
 ui <- page_navbar(
   
-  tags$a(
-    class = "btn btn-primary nav-link",
-    href = "https://hypnotoad.shinyapps.io/shiny_iHate/",
-    "Back to Homepage",
-  ),
-  
   title = "Racial Bias in Normative Modeling",
   # helps deal with drop down being cut off
   
@@ -108,34 +102,42 @@ ui <- page_navbar(
     }
   }
 "))),
-
   nav_panel("Relative Difference",
-            id = "tab_5",
+            id = "tab_6",
+            tags$li(
+              class = "nav-item",
+              style = "list-style-type: none;",
+              tags$a(
+                class = "btn btn-primary nav-link",
+                href = "https://hypnotoad.shinyapps.io/shiny_iHate/",
+                "Back to Homepage",
+              )
+            ),
             fluidRow(
               col_widths = c(12, 12),
-              div(
-                tags$p(
-                  tags$strong("Relative Difference"),
-                  style = "margin-bottom: 10px; font-size: 28px; "
-                ),
-                tags$p(
-                  "To better compare error differences across race groups, we compute a relative deviation score using the White subgroup as the reference.
-   In the plots, darker red regions indicate groups with higher average error relative to the White subgroup, while darker blue regions indicate lower average error.
-   These color gradients reflect the percent difference in average error compared to the White group."
-                ),
-                tags$p(
-                  tags$strong("Key notes for interpreting this page:"),
-                  style = "margin-bottom: 10px; font-size: 16px;"
-                ),
-                tags$ul(
-                  tags$li("Select between brain measure, sex, race, and visit time point.", style = "margin: 0; font-size: 14px;"),
-                  tags$li("Gradient color scales adjust based on your selections. The same colors in different plots may not represent the same values.", style = "margin: 0; font-size: 14px;"),
-                  tags$li("Selecting 'All' includes all race groups. To focus on specific groups, remove 'All' and choose races individually.", style = "margin: 0; font-size: 14px;"),
-                  tags$li("'Overall' represents the average error across all available visit time points.", style = "margin: 0; font-size: 14px;")
-                )
-              ),
               card(
+                
                 title = "sidebar = sidebar(renderTex",
+                div(
+                  tags$p(
+                    tags$strong("Relative Difference"),
+                    style = "margin-bottom: 10px; font-size: 28px; "
+                  ),
+                  tags$p(
+                    "To better compare error differences across race groups, we compute a relative deviation score using the White subgroup as the reference.
+   In the plots, darker red regions indicate groups with higher average error relative to the White subgroup, while darker blue regions indicate lower average error.
+   These color gradients reflect the percent difference in average error compared to the White group.
+                    ",style = "margin-bottom: 5px; font-size: 16px;"),
+                  tags$p(
+                    tags$strong("Key notes for interpreting this page:"),
+                    style = "margin-bottom: 10px; font-size: 16px;"
+                  ),tags$ul(
+                    tags$li("Select between brain measure, sex, race, and visit time point.", style = "margin: 0; font-size: 14px;"),
+                    tags$li("Gradient color scales adjust based on your selections. The same colors in different plots may not represent the same values.", style = "margin: 0; font-size: 14px;"),
+                    tags$li("Selecting 'All' includes all race groups. To focus on specific groups, remove 'All' and choose races individually.", style = "margin: 0; font-size: 14px;"),
+                    tags$li("'Overall' represents the average error across all available visit time points.", style = "margin: 0; font-size: 14px;")
+                  )
+                ),
                 layout_columns(
                   col_widths = c(2, 1, 6, 2),
                   
@@ -173,6 +175,7 @@ ui <- page_navbar(
               , card(
                 card_header(tags$h4("", style = "text-align: center;")),
                 title = "plot 1",
+                style = "height: 5000px;",
                 div(
                   style = "display: flex; justify-content: center; align-items: center;",
                   imageOutput("difference", inline = TRUE)
@@ -180,6 +183,7 @@ ui <- page_navbar(
               ),
             ),
   )
+
   
   
 )

@@ -159,7 +159,7 @@ ui <- page_navbar(
                   ),
                 ),
                 layout_columns(
-                  col_widths = c(2, 2, 2, 2, 2, 2),
+                  col_widths = c(2, 2, 3, 2, 3),
                   
                   selectInput(
                     inputId = "cbcl_measure",

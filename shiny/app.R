@@ -707,7 +707,17 @@ ui <- page_navbar(
           research in the application of statistical methods or AI. ",
           style = "margin-bottom: 5px; font-size: 14px;"
         ),
-      ),
+        tags$p(
+          tags$strong("Email: "),
+          tags$a(href = "mailto:jsc9862@nyu.edu", "jsc9862@nyu.edu"),
+          style = "font-size: 14px;"
+        ),
+        
+        tags$p(
+          tags$strong("GitHub: "),
+          tags$a(href = "https://github.com/yourusername", "github.com/yourusername", target = "_blank"),
+          style = "font-size: 14px;"
+        ),
       
       card(
         tags$p(

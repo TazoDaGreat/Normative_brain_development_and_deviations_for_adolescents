@@ -715,9 +715,11 @@ ui <- page_navbar(
         
         tags$p(
           tags$strong("GitHub: "),
-          tags$a(href = "https://github.com/yourusername", "github.com/yourusername", target = "_blank"),
+          tags$a(href = "https://github.com/jeffreyschoi-nyu", "github.com/jeffreyschoi-nyu", target = "_blank"),
+          " / ",
+          tags$a(href = "https://github.com/jeffreyschoi", "github.com/jeffreyschoi", target = "_blank"),
           style = "font-size: 14px;"
-        ),
+        )
       
       card(
         tags$p(

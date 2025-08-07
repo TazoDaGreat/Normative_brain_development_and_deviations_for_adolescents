@@ -5,6 +5,6 @@ account: jeffreyschoi-umn
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 15171705
-bundleId: 10737773
+bundleId:
 url: https://jeffreyschoi-umn.shinyapps.io/dep_app/
 version: 1
